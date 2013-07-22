@@ -15,6 +15,7 @@ public class PeerUploadConnection extends Thread{
 
     public PeerUploadConnection(String ipAddress, int port) throws IOException {
 
+        active = true;
     }
 
     public void run() {

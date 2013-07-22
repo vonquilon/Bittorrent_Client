@@ -15,6 +15,7 @@ public class PeerDownloadConnection extends Thread{
 
     public PeerDownloadConnection(String ipAddress, int port) throws IOException {
 
+        active = true;
     }
 
     public void run() {
