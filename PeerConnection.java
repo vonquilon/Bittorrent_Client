@@ -17,7 +17,7 @@ public class PeerConnection{
     //Socket connectionSocket; made in PeerDownloadConnectin.java
     //PeerDownloadConnection fromPeer;
     PeerUploadConnection toPeer;
-    static ConnectionState state;
+    //static ConnectionState state;
 
 
     /**
@@ -55,7 +55,7 @@ public class PeerConnection{
             	indexes = getIndexes(piecesPerPeer - 1);
             else
             	indexes = getIndexes(piecesPerPeer);
-            downloads.add(new PeerDownloadConnection(IPaddress, port, state, torrentFile, peerID, fileReference indexes));
+            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, fileReference, indexes));
     	}
     	
     }
