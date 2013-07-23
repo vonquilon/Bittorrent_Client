@@ -15,6 +15,7 @@ public class PeerDownloadConnection extends Thread{
     boolean active;
     byte[] file;
 
+
     public PeerDownloadConnection(Socket connectionSocket, ConnectionState state, byte[] file) throws IOException {
         this.connectionSocket = connectionSocket;
         connectionState = state;
@@ -22,6 +23,7 @@ public class PeerDownloadConnection extends Thread{
         active = true;
     }
 
+    @Override
     public void run() {
         try(InputStream peerDownloadStream = connectionSocket.getInputStream()) {
             while(active) {
@@ -37,6 +39,9 @@ public class PeerDownloadConnection extends Thread{
     }
 
 
+    /**
+     * Stops the thread of execution, although perhaps not immediately, and frees all resources
+     */
     public void close() {
         active = false;
     }

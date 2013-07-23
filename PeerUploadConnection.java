@@ -23,6 +23,7 @@ public class PeerUploadConnection extends Thread{
         active = true;
     }
 
+    @Override
     public void run() {
         try(OutputStream peerUploadStream = connectionSocket.getOutputStream()) {
             while(active) {
@@ -36,6 +37,9 @@ public class PeerUploadConnection extends Thread{
         }
     }
 
+    /**
+     * Stops the thread of execution, although perhaps not immediately, and frees all resources
+     */
     public void close() {
         active = false;
     }

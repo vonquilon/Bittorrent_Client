@@ -14,4 +14,12 @@ public class PeerConnectionManager {
     public PeerConnectionManager() {
         peers = new ArrayList<PeerConnection>();
     }
+
+    public byte[] downloadFile(int filesize, int pieceSize) {
+        boolean[] completedPieces = new boolean[(filesize+pieceSize-1)/pieceSize];
+        byte[] file = new byte[filesize];
+
+
+        return file;
+    }
 }
