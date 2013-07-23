@@ -11,29 +11,28 @@ import java.net.Socket;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerUploadConnection extends Thread{
-    OutputStream peerUploadSocket;
+    Socket connectionSocket;
     ConnectionState connectionState;
     boolean active;
     byte[] file;
 
     public PeerUploadConnection(Socket connectionSocket, ConnectionState state, byte[] file) throws IOException {
-        peerUploadSocket = connectionSocket.getOutputStream();
+        this.connectionSocket = connectionSocket;
         connectionState = state;
         this.file = file;
         active = true;
     }
 
     public void run() {
-        while(active) {
-            if(!connectionState.clientChokedPeer && connectionState.peerInterestedInClient){
-                //byte[] rawDataFromPeer = new byte[];
-                //peerDownloadSocket.read(rawDataFromPeer);
+        try(OutputStream peerUploadStream = connectionSocket.getOutputStream()) {
+            while(active) {
+                if(!connectionState.clientChokedPeer && connectionState.peerInterestedInClient){
+
+                }
             }
-        }
-        try {
-            peerUploadSocket.close();
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+
         }
     }
 
