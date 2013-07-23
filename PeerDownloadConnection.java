@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 
 /**
@@ -9,25 +10,34 @@ import java.net.Socket;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerDownloadConnection extends Thread{
-    Socket peerDownloadSocket;
+    InputStream peerDownloadSocket;
+    ConnectionState connectionState;
     boolean active;
+    byte[] file;
 
 
-    public PeerDownloadConnection(String ipAddress, int port) throws IOException {
-
+    public PeerDownloadConnection(Socket connectionSocket, ConnectionState state, byte[] file) throws IOException {
+        peerDownloadSocket = connectionSocket.getInputStream();
+        connectionState = state;
+        this.file = file;
         active = true;
     }
 
     public void run() {
-        while(active) {
-
-        }
         try {
+            while(active) {
+                if(!connectionState.peerChokedClient && connectionState.clientInterestedInPeer){
+                    //byte[] rawDataFromPeer = new byte[];
+                    //peerDownloadSocket.read(rawDataFromPeer);
+                }
+
+            }
             peerDownloadSocket.close();
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
     }
+
 
     public void close() {
         active = false;

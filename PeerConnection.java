@@ -1,4 +1,6 @@
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
 
 /**
  * This class connects to a peer, communicates with the peer,
@@ -9,8 +11,10 @@ import java.io.IOException;
  * @version 1.0
  */
 public class PeerConnection{
+    Socket connectionSocket;
     PeerDownloadConnection fromPeer;
     PeerUploadConnection toPeer;
+    ConnectionState state;
 
 
     /**
@@ -19,9 +23,10 @@ public class PeerConnection{
      * @param port port that we're connecting to
      * @throws IOException if unable to connect
      */
-    public PeerConnection(String ipAddress, int port) throws IOException {
-        fromPeer = new PeerDownloadConnection(ipAddress, port);
-        toPeer = new PeerUploadConnection(ipAddress, port);
+    public PeerConnection(String ipAddress, int port, byte[] file) throws IOException {
+        connectionSocket = new Socket(InetAddress.getByName(ipAddress), port);
+        fromPeer = new PeerDownloadConnection(connectionSocket, state, file);
+        toPeer = new PeerUploadConnection(connectionSocket, state, file);
     }
 
     /**
@@ -32,11 +37,5 @@ public class PeerConnection{
         toPeer.close();
         fromPeer.join();
         toPeer.join();
-    }
-
-    enum ConnectionState {
-        //TODO: add more states
-        CHOKED,
-        UNCHOKED;
     }
 }
