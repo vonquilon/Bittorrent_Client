@@ -1,6 +1,9 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Created with IntelliJ IDEA.
@@ -13,13 +16,13 @@ public class PeerDownloadConnection extends Thread{
     Socket connectionSocket;
     ConnectionState connectionState;
     boolean active;
-    byte[] file;
+    AtomicReferenceArray fileReference;
 
 
-    public PeerDownloadConnection(Socket connectionSocket, ConnectionState state, byte[] file) throws IOException {
-        this.connectionSocket = connectionSocket;
+    public PeerDownloadConnection(String peerIPAddress, int port, ConnectionState state, TorrentFile torrentInfo, byte[] peerID, AtomicReferenceArray fileReference, ArrayList<Integer> indexes) throws IOException {
+        //this.connectionSocket = connectionSocket;
         connectionState = state;
-        this.file = file;
+        this.fileReference = fileReference;
         active = true;
     }
 
