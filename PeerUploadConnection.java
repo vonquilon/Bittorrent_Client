@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Created with IntelliJ IDEA.
@@ -11,31 +13,37 @@ import java.net.Socket;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerUploadConnection extends Thread{
-    Socket connectionSocket;
-    ConnectionState connectionState;
-    boolean active;
-    byte[] file;
 
-    public PeerUploadConnection(Socket connectionSocket, ConnectionState state, byte[] file) throws IOException {
-        this.connectionSocket = connectionSocket;
-        connectionState = state;
+    ServerSocket connectionSocket;
+    boolean active;
+    int port;
+    byte[] peerID;
+    FileManager file;
+    TorrentFile torrentInfo;
+    ArrayList<Integer> indexes;
+
+    public PeerUploadConnection(int serverPort, TorrentFile torrentInfo, byte[] peerID, FileManager file, ArrayList<Integer> indexes) throws IOException {
+        this.port = serverPort;
         this.file = file;
+        this.torrentInfo = torrentInfo;
+        this.peerID = peerID;
+        this.indexes = indexes;
         active = true;
     }
-
     @Override
     public void run() {
-        try(OutputStream peerUploadStream = connectionSocket.getOutputStream()) {
+        try{
+            connectionSocket = new ServerSocket(port);
             while(active) {
-                if(!connectionState.clientChokedPeer && connectionState.peerInterestedInClient){
 
-                }
             }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
 
         }
     }
+
+    public static void sendMessage()
 
     /**
      * Stops the thread of execution, although perhaps not immediately, and frees all resources
