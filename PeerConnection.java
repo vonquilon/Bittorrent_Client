@@ -40,20 +40,23 @@ public class PeerConnection{
     	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
     	int numberOfPeers = peerIPAddresses.length;
     	int numberOfPieces = torrentFile.getNumberOfPieces();
-    	int piecesPerPeer = (int) Math.ceil(numberOfPieces/numberOfPeers);
+    	int piecesPerPeer = (int) Math.ceil((double) numberOfPieces/numberOfPeers);
     	boolean isLeftOver = false;
     	if(numberOfPieces % numberOfPeers > 0)
     		isLeftOver = true;
     	ArrayList<PeerDownloadConnection> downloads = new ArrayList<PeerDownloadConnection>(numberOfPeers);
+    	int offset = 0;
     	for(int i = 0; i < numberOfPeers; i++) {
     		String[] selectedPeer = getAPeer(peers, peerIPAddresses[i]);
     		String IPaddress = selectedPeer[0];
             int port = Integer.parseInt(selectedPeer[1]);
             ArrayList<Integer> indexes;
             if(isLeftOver && i == numberOfPeers - 1)
-            	indexes = getIndexes(piecesPerPeer - 1);
-            else
-            	indexes = getIndexes(piecesPerPeer);
+            	indexes = getIndexes(piecesPerPeer - 1, offset);
+            else {
+            	indexes = getIndexes(piecesPerPeer, offset);
+            	offset += piecesPerPeer;
+            }
             downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, file, indexes));
     	}
     	for(int i = 0; i < downloads.size(); i++)
@@ -106,11 +109,12 @@ public class PeerConnection{
      * @param numberOfPieces
      * @return indexes
      */
-    private static ArrayList<Integer> getIndexes(int numberOfPieces) {
+    private static ArrayList<Integer> getIndexes(int numberOfPieces, int offset) {
 
         ArrayList<Integer> indexes = new ArrayList<Integer>(numberOfPieces);
+        int maxIndex = numberOfPieces + offset;
 
-        for (int i = 0; i < numberOfPieces; i++)
+        for (int i = offset; i < maxIndex; i++)
             indexes.add(i);
 
         return indexes;
