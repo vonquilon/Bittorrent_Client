@@ -24,96 +24,102 @@ public class PeerDownloadConnection extends Thread{
     String peerIPAddress;
     int port;
     byte[] peerID;
-    AtomicReferenceArray fileReference;
+    FileManager file;
     TorrentFile torrentInfo;
     ArrayList<Integer> indexes;
 
-    public PeerDownloadConnection(String peerIPAddress, int port, TorrentFile torrentInfo, byte[] peerID, AtomicReferenceArray fileReference, ArrayList<Integer> indexes) throws IOException {
+    public PeerDownloadConnection(String peerIPAddress, int port, TorrentFile torrentInfo, byte[] peerID, FileManager file, ArrayList<Integer> indexes) throws IOException {
         //this.connectionSocket = connectionSocket;
         //connectionState = state;
         this.peerIPAddress = peerIPAddress;
         this.port = port;
-        this.fileReference = fileReference;
+        this.file = file;
         this.torrentInfo = torrentInfo;
         this.peerID = peerID;
         this.indexes = indexes;
         active = true;
     }
 
-    @Override
-    public void run() {
+    
+    public void run(){
     	System.out.println("Contacting peer at " + peerIPAddress +
                 " on port " + Integer.toString(port));
+    	try{
+	        connectionSocket = new Socket(peerIPAddress, port);
+	        OutputStream toPeer = connectionSocket.getOutputStream();
+	        InputStream fromPeer = connectionSocket.getInputStream();
+	        System.out.print("\nHandshake verified");
+	        byte[] message = createHandshake(torrentInfo.getInfoHashBytes(), peerID);
+	        toPeer.write(message);
+	        byte[] messageFromPeer = responseFromPeer(fromPeer, message.length);
+	
+	        if (verifyInfoHash(message, messageFromPeer)) {
 
-        connectionSocket = new Socket(peerIPAddress, port);
-        OutputStream toPeer = connectionSocket.getOutputStream();
-        InputStream fromPeer = connectionSocket.getInputStream();
-        System.out.print("\nHandshake verified");
-        byte[] message = createHandshake(torrentInfo.getInfoHashBytes(), peerID);
-        toPeer.write(message);
-        byte[] messageFromPeer = responseFromPeer(fromPeer, message.length);
-
-        if (verifyInfoHash(message, messageFromPeer)) {
-
-            System.out.print(".......................DONE\n");
-            //creates an "interested" message
-            message = createMessage(1, 2, -1, -1, -1, 5);
-            int counter = -1;
-            System.out.print("Connection unchoked");
-
-            do {
-                toPeer.write(message);
-                messageFromPeer = responseFromPeer(fromPeer, message.length);
-                counter++;
-                //stops when received message == "unchoke" or had tried more than 10 times
-            } while (!decodeMessage(messageFromPeer).equals("unchoke") && counter < 10);
-
-            System.out.print("......................DONE\n");
-
-            if (counter == 10)
-                throw new IOException("Peer denied interested message!");
-
-            //Contacts tracker that downloading has started
-            URLConnection trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, 0, torrentInfo.getFileSize(), "started").openConnection();
-            trackerCommunication.connect();
-
-            System.out.println("\nDownload Started");
-            
-            int numberOfPieces = indexes.size();
-            for (int i = 0; i < numberOfPieces; i++) {
-
-                int pieceLength;
-                //gets random index number
-                int index = indexes.get(Functions.generateRandomInt(indexes.size() - 1));
-                indexes.remove((Integer) index);
-                //if the piece at the end of the file
-                if (index == torrentInfo.getNumberOfPieces() - 1)
-                    //Ex: 151709-32768*(5-1) = 20637 bytes = piece at end of file
-                    pieceLength = torrentInfo.getFileSize() - torrentInfo.getPieceSize() * (torrentInfo.getNumberOfPieces() - 1);
-                else
-                    pieceLength = torrentInfo.getPieceSize();
-
-                System.out.print("Piece " + Integer.toString(index + 1) + ": " +
-                        Integer.toString(pieceLength) + " bytes");
-
-                //creates a "request" message
-                message = createMessage(13, 6, index, 0, pieceLength, 17);
-                ArrayList<byte[]> pieceAndHeader = getPieceAndHeader(message, fromPeer, toPeer, pieceLength + 13, index, torrentInfo.getPieceHashes());
-                putPieceInFile(index, pieceAndHeader.get(1), file, torrentFile.getPieceSize());
-                //creates a "have" message
-                toPeer.write(createMessage(5, 4, index, -1, -1, 9));
-
-                System.out.print(".....................DONE\n");
-
-            }//end for
-
-            //Contacts tracker that download has completed, Header length = 13 bytes
-            trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
-            trackerCommunication.connect();
-
-            System.out.println("Download Complete\n");
-
-        }//end if
+	            System.out.print(".......................DONE\n");
+	            //creates an "interested" message
+	            message = createMessage(1, 2, -1, -1, -1, 5);
+	            int counter = -1;
+	            System.out.print("Connection unchoked");
+	
+	            do {
+	                toPeer.write(message);
+	                messageFromPeer = responseFromPeer(fromPeer, message.length);
+	                counter++;
+	                //stops when received message == "unchoke" or had tried more than 10 times
+	            } while (!decodeMessage(messageFromPeer).equals("unchoke") && counter < 10);
+	
+	            System.out.print("......................DONE\n");
+	
+	            if (counter == 10)
+	                throw new IOException("Peer denied interested message!");
+	
+	            //Contacts tracker that downloading has started
+	            URLConnection trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, 0, torrentInfo.getFileSize(), "started").openConnection();
+	            trackerCommunication.connect();
+	
+	            System.out.println("\nDownload Started");
+	            
+	            int numberOfPieces = indexes.size();
+	            for (int i = 0; i < numberOfPieces; i++) {
+	
+	                int pieceLength;
+	                //gets random index number
+	                int index = indexes.get(Functions.generateRandomInt(indexes.size() - 1));
+	                indexes.remove((Integer) index);
+	                //if the piece at the end of the file
+	                if (index == torrentInfo.getNumberOfPieces() - 1)
+	                    //Ex: 151709-32768*(5-1) = 20637 bytes = piece at end of file
+	                    pieceLength = torrentInfo.getFileSize() - torrentInfo.getPieceSize() * (torrentInfo.getNumberOfPieces() - 1);
+	                else
+	                    pieceLength = torrentInfo.getPieceSize();
+	
+	                System.out.print("Piece " + Integer.toString(index + 1) + ": " +
+	                        Integer.toString(pieceLength) + " bytes");
+	
+	                //creates a "request" message
+	                message = createMessage(13, 6, index, 0, pieceLength, 17);
+	                ArrayList<byte[]> pieceAndHeader = getPieceAndHeader(message, fromPeer, toPeer, pieceLength + 13, index, torrentInfo.getPieceHashes());
+	                file.putPieceInFile(index, pieceAndHeader.get(1), torrentInfo.getPieceSize());
+	                //creates a "have" message
+	                toPeer.write(createMessage(5, 4, index, -1, -1, 9));
+	
+	                System.out.print(".....................DONE\n");
+	
+	            }//end for
+	
+	            //Contacts tracker that download has completed, Header length = 13 bytes
+	            trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, torrentInfo.getFileSize() + torrentInfo.getNumberOfPieces() * 13, 0, "completed").openConnection();
+	            trackerCommunication.connect();
+	
+	            System.out.println("Download Complete\n");
+	
+	        }//end if
+	        else
+                throw new IOException("Unknown info hash from peer's handshake!");
+    	}catch (IOException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        }
     }
 
 

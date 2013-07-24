@@ -36,8 +36,7 @@ public class PeerConnection{
     
     public static byte[] getFileFromPeer(ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID) throws IOException {
 
-    	Byte[] file = new Byte[torrentFile.getFileSize()];
-    	AtomicReferenceArray fileReference = new AtomicReferenceArray(file);
+    	FileManager file = new FileManager(torrentFile.getFileSize());
     	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
     	int numberOfPeers = peerIPAddresses.length;
     	int numberOfPieces = torrentFile.getNumberOfPieces();
@@ -55,9 +54,19 @@ public class PeerConnection{
             	indexes = getIndexes(piecesPerPeer - 1);
             else
             	indexes = getIndexes(piecesPerPeer);
-            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, fileReference, indexes));
+            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, file, indexes));
     	}
-    	
+    	for(int i = 0; i < downloads.size(); i++)
+    		downloads.get(i).start();
+    	for(int i = 0; i < downloads.size(); i++) {
+			try {
+				downloads.get(i).join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	}
+    	return file.getFile();
     }
 
     /**
