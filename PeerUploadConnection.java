@@ -1,5 +1,4 @@
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -33,9 +32,9 @@ public class PeerUploadConnection extends Thread{
     @Override
     public void run() {
         try{
-            connectionSocket = new ServerSocket(port);
             while(active) {
-
+                connectionSocket = new ServerSocket(port);
+                Socket socket = connectionSocket.accept();
             }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
@@ -43,7 +42,6 @@ public class PeerUploadConnection extends Thread{
         }
     }
 
-    public static void sendMessage()
 
     /**
      * Stops the thread of execution, although perhaps not immediately, and frees all resources
