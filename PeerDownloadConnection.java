@@ -48,18 +48,16 @@ public class PeerDownloadConnection extends Thread{
 	        connectionSocket = new Socket(peerIPAddress, port);
 	        OutputStream toPeer = connectionSocket.getOutputStream();
 	        InputStream fromPeer = connectionSocket.getInputStream();
-	        System.out.print("\nHandshake verified");
 	        byte[] message = createHandshake(torrentInfo.getInfoHashBytes(), peerID);
 	        toPeer.write(message);
 	        byte[] messageFromPeer = responseFromPeer(fromPeer, message.length);
 	
 	        if (verifyInfoHash(message, messageFromPeer)) {
-
-	            System.out.print(".......................DONE\n");
+	        	
+	        	System.out.println("Handshake verified from " + peerIPAddress);
 	            //creates an "interested" message
 	            message = createMessage(1, 2, -1, -1, -1, 5);
 	            int counter = -1;
-	            System.out.print("Connection unchoked");
 	
 	            do {
 	                toPeer.write(message);
@@ -68,7 +66,7 @@ public class PeerDownloadConnection extends Thread{
 	                //stops when received message == "unchoke" or had tried more than 10 times
 	            } while (!decodeMessage(messageFromPeer).equals("unchoke") && counter < 10);
 	
-	            System.out.print("......................DONE\n");
+	            System.out.println("Connection unchoked from " + peerIPAddress);
 	
 	            if (counter == 10)
 	                throw new IOException("Peer denied interested message!");
@@ -77,7 +75,7 @@ public class PeerDownloadConnection extends Thread{
 	            URLConnection trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, 0, torrentInfo.getFileSize(), "started").openConnection();
 	            trackerCommunication.connect();
 	
-	            System.out.println("\nDownload Started");
+	            System.out.println("Download Started from " + peerIPAddress);
 	            
 	            int numberOfPieces = indexes.size();
 	            for (int i = 0; i < numberOfPieces; i++) {
@@ -93,9 +91,6 @@ public class PeerDownloadConnection extends Thread{
 	                else
 	                    pieceLength = torrentInfo.getPieceSize();
 	
-	                System.out.print("Piece " + Integer.toString(index + 1) + ": " +
-	                        Integer.toString(pieceLength) + " bytes");
-	
 	                //creates a "request" message
 	                message = createMessage(13, 6, index, 0, pieceLength, 17);
 	                ArrayList<byte[]> pieceAndHeader = getPieceAndHeader(message, fromPeer, toPeer, pieceLength + 13, index, torrentInfo.getPieceHashes());
@@ -103,7 +98,8 @@ public class PeerDownloadConnection extends Thread{
 	                //creates a "have" message
 	                toPeer.write(createMessage(5, 4, index, -1, -1, 9));
 	
-	                System.out.print(".....................DONE\n");
+	                System.out.println("Piece " + Integer.toString(index + 1) + ": " +
+	                        Integer.toString(pieceLength) + " bytes downloaded from " + peerIPAddress);
 	
 	            }//end for
 	
@@ -111,14 +107,13 @@ public class PeerDownloadConnection extends Thread{
 	            trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, torrentInfo.getFileSize() + torrentInfo.getNumberOfPieces() * 13, 0, "completed").openConnection();
 	            trackerCommunication.connect();
 	
-	            System.out.println("Download Complete\n");
+	            System.out.println("Download Complete from " + peerIPAddress);
 	
 	        }//end if
 	        else
                 throw new IOException("Unknown info hash from peer's handshake!");
     	}catch (IOException e) {
             System.err.println(e.getMessage());
-            System.exit(1);
         }
     }
 
