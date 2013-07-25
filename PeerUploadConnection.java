@@ -23,18 +23,25 @@ public class PeerUploadConnection extends Thread{
 
     public PeerUploadConnection(int serverPort, TorrentFile torrentInfo, byte[] peerID, FileManager file, ArrayList<Integer> indexes) throws IOException {
         this.port = serverPort;
+        connectionSocket = new ServerSocket(serverPort);
         this.file = file;
         this.torrentInfo = torrentInfo;
         this.peerID = peerID;
         this.indexes = indexes;
-        active = true;
+        active = false;
     }
     @Override
     public void run() {
         try{
+            active = true;
             while(active) {
                 connectionSocket = new ServerSocket(port);
                 Socket socket = connectionSocket.accept();
+                boolean choking = true;
+                boolean peerInterested = false;
+                InputStream fromPeer = socket.getInputStream();
+                OutputStream toPeer = socket.getOutputStream();
+
             }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
