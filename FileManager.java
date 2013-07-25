@@ -1,11 +1,33 @@
+import java.util.ArrayList;
 
 public class FileManager {
 
 	byte[] file;
+	ArrayList<Integer> downloading;
+	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
-	public FileManager(int size) {
+	public FileManager(int size, int numberOfPieces) {
 		
 		file = new byte[size];
+		downloading = new ArrayList<Integer>(numberOfPieces);
+		
+	}
+	
+	public synchronized void insertIntoBitfield(int index) {
+		
+		downloading.remove((Integer) index);
+		bitfield[index] = '1';
+		
+	}
+	
+	public synchronized boolean isDownloadable(int index) {
+		
+		if(!downloading.contains(index) && bitfield[index]=='0') {
+			downloading.add(index);
+			return true;
+		}
+		else
+			return false;
 		
 	}
 	
