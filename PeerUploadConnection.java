@@ -3,6 +3,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
@@ -54,29 +56,49 @@ public class PeerUploadConnection extends Thread{
 
                 boolean connectedToPeer = true;
                 byte[] message = new byte[torrentInfo.getPieceSize()];
+                BitSet peerBitField = new BitSet(torrentInfo.getNumberOfPieces());
+                peerBitField.clear();
+
 
                 while(connectedToPeer) {
                     fromPeer.read(message);
                     byte messageID = message[0];
+                    byte[] payload;
 
                     switch(messageID) {
                         case 0:
+                            //peer sent a choke message
+                            //invalid message ID; ignore it
                             break;
                         case 1:
+                            //peer sent an unchoke message
+                            //invalid message ID; ignore it
                             break;
                         case 2:
+                            //peer sent an interested message
+                            peerInterested = true;
                             break;
                         case 3:
+                            //peer sent a not interested message
+                            peerInterested = false;
                             break;
                         case 4:
+                            //peer sent a have message
+                            payload = getPayload(message, 4);
                             break;
                         case 5:
+                            //peer sent a bitfield message
+                            payload = getPayload(message, (torrentInfo.getNumberOfPieces()+7)/8);
                             break;
                         case 6:
+                            //peer sent a request message
                             break;
                         case 7:
+                            //peer sent a piece message
+                            //invalid message ID; ignore it
                             break;
                         case 8:
+                            //peer sent a cancel message
                             break;
                         default:
                             //invalid message ID; ignore it
@@ -92,6 +114,10 @@ public class PeerUploadConnection extends Thread{
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
 
         }
+    }
+
+    private byte[] getPayload(byte[] message, int expectedLength) {
+        return Arrays.copyOfRange(message, 1, expectedLength+1);
     }
 
     private byte[] getPeerID(byte[] handshake) {
