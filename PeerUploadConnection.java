@@ -35,8 +35,8 @@ public class PeerUploadConnection extends Thread{
     public void run() {
         try{
             active = true;
+            connectionSocket = new ServerSocket(port);
             while(active) {
-                connectionSocket = new ServerSocket(port);
                 Socket socket = connectionSocket.accept();
                 boolean choking = true;
                 boolean peerInterested = false;
@@ -45,11 +45,47 @@ public class PeerUploadConnection extends Thread{
 
                 byte[] handshake = new byte[68];
                 fromPeer.read(handshake);
+
                 if(!verifyHandshake(handshake, torrentInfo.getInfoHashBytes())) {
                     connectionSocket.close();
                     continue;
                 }
                 byte[] peerID = getPeerID(handshake);
+
+                boolean connectedToPeer = true;
+                byte[] message = new byte[torrentInfo.getPieceSize()];
+
+                while(connectedToPeer) {
+                    fromPeer.read(message);
+                    byte messageID = message[0];
+
+                    switch(messageID) {
+                        case 0:
+                            break;
+                        case 1:
+                            break;
+                        case 2:
+                            break;
+                        case 3:
+                            break;
+                        case 4:
+                            break;
+                        case 5:
+                            break;
+                        case 6:
+                            break;
+                        case 7:
+                            break;
+                        case 8:
+                            break;
+                        default:
+                            //invalid message ID; ignore it
+                            break;
+
+                    }
+                }
+
+
 
             }
         } catch (IOException e) {
