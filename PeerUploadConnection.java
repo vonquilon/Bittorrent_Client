@@ -45,11 +45,7 @@ public class PeerUploadConnection extends Thread{
 
                 byte[] handshake = new byte[68];
                 fromPeer.read(handshake);
-                byte[] protocol = "BitTorrent protocol".getBytes();
-                if(handshake[0] != 19 || !Arrays.equals(Arrays.copyOfRange(handshake,1,protocol.length+1),protocol)) {
-                    //first condition: first byte must be equal to 19.
-                    //second condition: the next bytes must be the string "BitTorrent protocol" in bytes
-                    //if either of the two conditions aren't met, then the data is unexpected and we kill the connection
+                if(!verifyHandshake(handshake, torrentInfo.getInfoHashBytes())) {
                     connectionSocket.close();
                     continue;
                 }
@@ -59,6 +55,26 @@ public class PeerUploadConnection extends Thread{
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
 
         }
+    }
+
+    /**
+     * Verify that the handshake we received is of the correct format
+     * @param handshake our handshake message
+     * @param expectedHashBytes the expected 20-byte SHA1 hash
+     * @return whether this message is a valid handshake message
+     */
+    private boolean verifyHandshake(byte[] handshake, byte[] expectedHashBytes) {
+        byte[] protocol = "BitTorrent protocol".getBytes();
+        if(handshake[0] != 19 || !Arrays.equals(Arrays.copyOfRange(handshake,1,protocol.length+1),protocol)) {
+            /*
+            first condition: first byte must be equal to 19.
+            second condition: the next bytes must be the string "BitTorrent protocol" in bytes
+            if either of the two conditions aren't met, then the data is unexpected and we kill the connection
+            */
+            return false;
+        }
+        byte[] infoHashBytes = Arrays.copyOfRange(handshake,protocol.length+2,protocol.length+22);
+        return Arrays.equals(expectedHashBytes, infoHashBytes);
     }
 
 
