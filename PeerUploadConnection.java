@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
@@ -41,6 +42,17 @@ public class PeerUploadConnection extends Thread{
                 boolean peerInterested = false;
                 InputStream fromPeer = socket.getInputStream();
                 OutputStream toPeer = socket.getOutputStream();
+
+                byte[] handshake = new byte[68];
+                fromPeer.read(handshake);
+                byte[] protocol = "BitTorrent protocol".getBytes();
+                if(handshake[0] != 19 || !Arrays.equals(Arrays.copyOfRange(handshake,1,protocol.length+1),protocol)) {
+                    //first condition: first byte must be equal to 19.
+                    //second condition: the next bytes must be the string "BitTorrent protocol" in bytes
+                    //if either of the two conditions aren't met, then the data is unexpected and we kill the connection
+                    connectionSocket.close();
+                    continue;
+                }
 
             }
         } catch (IOException e) {

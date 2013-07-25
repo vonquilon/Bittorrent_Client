@@ -39,8 +39,11 @@ public class PeerUploader {
         }
     }
 
-    public void stopUploading() {
+    public void stopUploading() throws InterruptedException {
         active = false;
-
+        for(PeerUploadConnection uploadConnection : uploadConnections) {
+            uploadConnection.close();
+            uploadConnection.join();
+        }
     }
 }
