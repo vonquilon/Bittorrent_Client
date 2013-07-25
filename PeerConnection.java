@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -34,9 +35,10 @@ public class PeerConnection{
          */
     }
     
-    public static byte[] getFileFromPeer(ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID) throws IOException {
+    public static void downloadFile(ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID, String fileName) throws IOException {
 
-    	FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces());
+    	FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
+    	//put upload here
     	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
     	int numberOfPeers = peerIPAddresses.length;
     	//int numberOfPieces = torrentFile.getNumberOfPieces();
@@ -71,7 +73,8 @@ public class PeerConnection{
 				e.printStackTrace();
 			}
     	}
-    	return fileManager.getFile();
+    	System.out.println("\nSaved file as " + fileName);
+    	//return fileManager.getFile();
     }
 
     /**
