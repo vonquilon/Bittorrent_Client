@@ -25,6 +25,8 @@ public class PeerUploader {
         for(int i = portMinRange; i <= portHighRange; i++) {
             uploadConnections.add(new PeerUploadConnection(i,torrentInfo, peerID, file, indexes));
         }
+        this.portMinRange = portMinRange;
+        this.portHighRange = portHighRange;
         this.file = file;
         this.torrentInfo = torrentInfo;
         this.peerID = peerID;

@@ -49,12 +49,18 @@ public class PeerUploadConnection extends Thread{
                     connectionSocket.close();
                     continue;
                 }
+                byte[] peerID = getPeerID(handshake);
 
             }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
 
         }
+    }
+
+    private byte[] getPeerID(byte[] handshake) {
+        int peerIDIndex = "BitTorrent protocol".getBytes().length+23;
+        return Arrays.copyOfRange(handshake,peerIDIndex,handshake.length);
     }
 
     /**
