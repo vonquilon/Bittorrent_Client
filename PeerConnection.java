@@ -36,29 +36,31 @@ public class PeerConnection{
     
     public static byte[] getFileFromPeer(ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID) throws IOException {
 
-    	FileManager file = new FileManager(torrentFile.getFileSize());
+    	FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces());
     	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
     	int numberOfPeers = peerIPAddresses.length;
-    	int numberOfPieces = torrentFile.getNumberOfPieces();
-    	int piecesPerPeer = (int) Math.ceil((double) numberOfPieces/numberOfPeers);
-    	boolean isLeftOver = false;
-    	if(numberOfPieces % numberOfPeers > 0)
-    		isLeftOver = true;
+    	//int numberOfPieces = torrentFile.getNumberOfPieces();
+    	//int piecesPerPeer = (int) Math.ceil((double) numberOfPieces/numberOfPeers);
+    	//boolean isLeftOver = false;
+    	//if(numberOfPieces % numberOfPeers > 0)
+    		//isLeftOver = true;
     	ArrayList<PeerDownloadConnection> downloads = new ArrayList<PeerDownloadConnection>(numberOfPeers);
-    	int offset = 0;
+    	//int offset = 0;
     	for(int i = 0; i < numberOfPeers; i++) {
     		String[] selectedPeer = getAPeer(peers, peerIPAddresses[i]);
     		String IPaddress = selectedPeer[0];
             int port = Integer.parseInt(selectedPeer[1]);
-            ArrayList<Integer> indexes;
+            /*ArrayList<Integer> indexes;
             if(isLeftOver && i == numberOfPeers - 1)
             	indexes = getIndexes(piecesPerPeer - 1, offset);
             else {
             	indexes = getIndexes(piecesPerPeer, offset);
             	offset += piecesPerPeer;
-            }
-            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, file, indexes));
+            }*/
+            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, fileManager));
     	}
+    	
+    	System.out.println("Download Process: ");
     	for(int i = 0; i < downloads.size(); i++)
     		downloads.get(i).start();
     	for(int i = 0; i < downloads.size(); i++) {
@@ -69,7 +71,7 @@ public class PeerConnection{
 				e.printStackTrace();
 			}
     	}
-    	return file.getFile();
+    	return fileManager.getFile();
     }
 
     /**
