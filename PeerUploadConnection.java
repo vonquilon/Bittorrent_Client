@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -55,20 +56,24 @@ public class PeerUploadConnection extends Thread{
                 }
                 byte[] peerID = getPeerID(handshake);
 
+
+
                 boolean connectedToPeer = true;
-                byte[] message = new byte[torrentInfo.getPieceSize()];
-                BitSet peerBitField = new BitSet(torrentInfo.getNumberOfPieces());
-                peerBitField.clear();
+                byte[] lengthBytes = new byte[4];
+
 
 
                 while(connectedToPeer) {
-                    fromPeer.read(message);
-                    byte[] lengthBytes = Arrays.copyOfRange(message, 0,3);
-                    int length = java.nio.ByteBuffer.wrap(lengthBytes).getInt();
+                    //read the 4 byte length and parse it into an int
+                    fromPeer.read(lengthBytes);
+                    int length = java.nio.ByteBuffer.wrap(lengthBytes).order(ByteOrder.BIG_ENDIAN).getInt();
                     if(length == 0) {
-                        //peer sent a keep-alive message
+                        //peer sent a keep-alive message, refreshing our timeout
                         continue;
                     }
+                    //construct a byte buffer equal to the size of the specified message and read it in
+                    byte[] message = new byte[length];
+                    fromPeer.read(message);
 
                     byte messageID = message[4];
                     byte[] payload;
@@ -85,6 +90,7 @@ public class PeerUploadConnection extends Thread{
                         case 2:
                             //peer sent an interested message
                             peerInterested = true;
+                            byte[] unchokeMessage = SharedFunctions.createMessage()
                             break;
                         case 3:
                             //peer sent a not interested message
@@ -97,18 +103,7 @@ public class PeerUploadConnection extends Thread{
                             break;
                         case 5:
                             //peer sent a bitfield message
-                            payload = getPayload(message, length);
-                            int bitfieldLength = length-1;
-                            int payloadIndex = 0;
-                            for(byte b : payload) {
-                                byte b1 = (byte) (b & 8);
-                                byte b2 = (byte) (b & 4);
-                                byte b3 = (byte) (b & 2);
-                                byte b4 = (byte) (b & 1);
-
-
-
-                            }
+                            //invalid messageID; ignore it
                             break;
                         case 6:
                             //peer sent a request message
