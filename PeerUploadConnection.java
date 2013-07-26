@@ -40,6 +40,7 @@ public class PeerUploadConnection extends Thread{
             connectionSocket = new ServerSocket(port);
             while(active) {
                 Socket socket = connectionSocket.accept();
+                socket.setSoTimeout(3000*60);
                 boolean choking = true;
                 boolean peerInterested = false;
                 InputStream fromPeer = socket.getInputStream();
@@ -92,10 +93,22 @@ public class PeerUploadConnection extends Thread{
                         case 4:
                             //peer sent a have message
                             payload = getPayload(message, length);
+                            int pieceIndex = payload[length];
                             break;
                         case 5:
                             //peer sent a bitfield message
                             payload = getPayload(message, length);
+                            int bitfieldLength = length-1;
+                            int payloadIndex = 0;
+                            for(byte b : payload) {
+                                byte b1 = (byte) (b & 8);
+                                byte b2 = (byte) (b & 4);
+                                byte b3 = (byte) (b & 2);
+                                byte b4 = (byte) (b & 1);
+
+
+
+                            }
                             break;
                         case 6:
                             //peer sent a request message
