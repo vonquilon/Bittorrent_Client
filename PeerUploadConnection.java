@@ -62,6 +62,13 @@ public class PeerUploadConnection extends Thread{
 
                 while(connectedToPeer) {
                     fromPeer.read(message);
+                    byte[] lengthBytes = Arrays.copyOfRange(message, 0,3);
+                    int length = java.nio.ByteBuffer.wrap(lengthBytes).getInt();
+                    if(length == 0) {
+                        //peer sent a keep-alive message
+                        continue;
+                    }
+
                     byte messageID = message[4];
                     byte[] payload;
 
@@ -84,11 +91,11 @@ public class PeerUploadConnection extends Thread{
                             break;
                         case 4:
                             //peer sent a have message
-                            payload = getPayload(message, 4);
+                            payload = getPayload(message, length);
                             break;
                         case 5:
                             //peer sent a bitfield message
-                            payload = getPayload(message, (torrentInfo.getNumberOfPieces()+7)/8);
+                            payload = getPayload(message, length);
                             break;
                         case 6:
                             //peer sent a request message
@@ -96,9 +103,6 @@ public class PeerUploadConnection extends Thread{
                         case 7:
                             //peer sent a piece message
                             //invalid message ID; ignore it
-                            break;
-                        case 8:
-                            //peer sent a cancel message
                             break;
                         default:
                             //invalid message ID; ignore it
@@ -116,8 +120,8 @@ public class PeerUploadConnection extends Thread{
         }
     }
 
-    private byte[] getPayload(byte[] message, int expectedLength) {
-        return Arrays.copyOfRange(message, 1, expectedLength+1);
+    private byte[] getPayload(byte[] message, int length) {
+        return Arrays.copyOfRange(message, 5, length+5);
     }
 
     private byte[] getPeerID(byte[] handshake) {
