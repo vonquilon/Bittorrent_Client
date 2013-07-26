@@ -62,7 +62,7 @@ public class PeerUploadConnection extends Thread{
 
                 while(connectedToPeer) {
                     fromPeer.read(message);
-                    byte messageID = message[0];
+                    byte messageID = message[4];
                     byte[] payload;
 
                     switch(messageID) {
