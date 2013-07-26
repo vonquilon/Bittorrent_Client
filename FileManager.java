@@ -1,14 +1,23 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 
 public class FileManager {
 
-	byte[] file;
+	RandomAccessFile file;
 	ArrayList<Integer> downloading;
 	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
-	public FileManager(int size, int numberOfPieces) {
+	public FileManager(int size, int numberOfPieces, String fileName) throws IOException {
 		
-		file = new byte[size];
+		try {
+			file = new RandomAccessFile(fileName, "rw");
+		} catch (FileNotFoundException e) {
+			file = new RandomAccessFile(new File(fileName), "rw");
+		}
+		file.setLength(size);
 		downloading = new ArrayList<Integer>(numberOfPieces);
 		
 	}
@@ -30,12 +39,12 @@ public class FileManager {
 			return false;
 		
 	}
-	
+	/*
 	public byte[] getFile() {
 		
 		return file;
 		
-	}
+	}*/
 	
 	/**
      * Method that assembles the piece into the file.
@@ -45,11 +54,13 @@ public class FileManager {
      * @param piece     Piece to be assembled into file
      * @param file      Where piece is assembled into
      * @param pieceSize
+	 * @throws IOException 
      */
-	public synchronized void putPieceInFile(int index, byte[] piece, int pieceSize) {
+	public synchronized void putPieceInFile(int index, byte[] piece, int pieceSize) throws IOException {
 
 		//pieceSize*index = byte offset in file
-    	System.arraycopy(piece, 0, file, pieceSize * index, piece.length);
+		file.seek(pieceSize*index);
+    	file.write(piece);
 
     }
 }

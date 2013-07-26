@@ -1,5 +1,7 @@
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 
 /**
@@ -78,9 +80,9 @@ public class RUBTClient {
             byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
 
             ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
-            byte[] file = PeerConnection.getFileFromPeer(peers, torrentFile, peerID);
+            PeerConnection.downloadFile(peers, torrentFile, peerID, args[1]);
 
-            saveDownloadedFile(args[1], file);
+            //saveDownloadedFile(args[1], file);
         } catch (Exception e) {
         	System.err.println("Could not save to " + args[1]);
         }
@@ -97,7 +99,7 @@ public class RUBTClient {
     	
         try (FileOutputStream fileWriter = new FileOutputStream(downloadedFilename)) {
             fileWriter.write(fileData);
-            System.out.println("Saved file as " + downloadedFilename);
+            System.out.println("\nSaved file as " + downloadedFilename);
         } catch (IOException e) {
             System.err.println("Could not save to " + downloadedFilename);
         }
