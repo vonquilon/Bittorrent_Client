@@ -47,14 +47,29 @@ public class PeerUploadConnection extends Thread{
                 InputStream fromPeer = socket.getInputStream();
                 OutputStream toPeer = socket.getOutputStream();
 
+                //read in the handshake
                 byte[] handshake = new byte[68];
                 fromPeer.read(handshake);
 
+                //if the handshake is bad, then stop the connection
                 if(!verifyHandshake(handshake, torrentInfo.getInfoHashBytes())) {
                     connectionSocket.close();
                     continue;
                 }
                 byte[] peerID = getPeerID(handshake);
+
+                //otherwise, immediately send our bitfield to the peer if we have data
+                boolean hasData = false;
+                for(char piece : file.bitfield) {
+                    if(piece != '0') {
+                        hasData = true;
+                        break;
+                    }
+                }
+                if(hasData) {
+                    byte[] bitfieldMessage = new byte[5+file.bitfield.length];
+
+                }
 
 
 
@@ -91,6 +106,7 @@ public class PeerUploadConnection extends Thread{
                             //peer sent an interested message
                             peerInterested = true;
                             //send an unchoke message to the peer indicating that we're ready to transfer data
+                            //message should be 0,0,0,1,1 in bytes
                             byte[] unchokeMessage = new byte[5];
                             Arrays.fill(unchokeMessage, (byte) 0);
                             unchokeMessage[3] = 1;
