@@ -90,7 +90,11 @@ public class PeerUploadConnection extends Thread{
                         case 2:
                             //peer sent an interested message
                             peerInterested = true;
-                            byte[] unchokeMessage = SharedFunctions.createMessage()
+                            //send an unchoke message to the peer indicating that we're ready to transfer data
+                            byte[] unchokeMessage = new byte[5];
+                            Arrays.fill(unchokeMessage, (byte) 0);
+                            unchokeMessage[3] = 1;
+                            unchokeMessage[4] = 1;
                             break;
                         case 3:
                             //peer sent a not interested message
