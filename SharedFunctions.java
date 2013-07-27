@@ -156,8 +156,13 @@ public class SharedFunctions {
         if(payload == null || payload.length == 0) {
             return message;
         }
-        byte[] totalMessage = Arrays.copyOf(message, message.length + payload.length);
-        System.arraycopy(payload,0,totalMessage,totalMessage.length,payload.length);
+        byte[] totalMessage = concat(payload, message);
+        return totalMessage;
+    }
+
+    private static byte[] concat(byte[] b1, byte[] b2) {
+        byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
+        System.arraycopy(b1,0,totalMessage,totalMessage.length,b1.length);
         return totalMessage;
     }
     
@@ -190,6 +195,27 @@ public class SharedFunctions {
     public static int lengthOfMessage(byte[] message) {
         message = Arrays.copyOfRange(message,0,4);
         return ByteBuffer.wrap(message).order(ByteOrder.BIG_ENDIAN).getInt();
+    }
+
+    /**
+     * Method that takes an entire peer message and returns its payload
+     * @param message message from a peer, including the length and id fields
+     * @param length length of the message
+     * @return payload of message
+     */
+    public static byte[] payloadOfMessage(byte[] message, int length) {
+        return Arrays.copyOfRange(message,5,length-5);
+    }
+
+
+
+    /**
+     * Method that takes an entire peer message and returns its payload
+     * @param message message from a peer, including the length and id fields
+     * @return payload of message
+     */
+    public static byte[] payloadOfMessage(byte[] message) {
+        return payloadOfMessage(message,lengthOfMessage(message));
     }
 
 }
