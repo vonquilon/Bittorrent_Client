@@ -111,6 +111,7 @@ public class PeerUploadConnection extends Thread{
                             Arrays.fill(unchokeMessage, (byte) 0);
                             unchokeMessage[3] = 1;
                             unchokeMessage[4] = 1;
+                            toPeer.write(unchokeMessage);
                             break;
                         case 3:
                             //peer sent a not interested message

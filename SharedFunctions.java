@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 
 public class SharedFunctions {
@@ -135,6 +136,13 @@ public class SharedFunctions {
 
         return message;
 
+    }
+
+    public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize, byte[] payload) {
+        byte[] message = createMessage(lengthPrefix,id,index,begin,length,byteSize);
+        byte[] totalMessage = Arrays.copyOf(message, message.length + payload.length);
+        System.arraycopy(payload,0,totalMessage,totalMessage.length,payload.length);
+        return totalMessage;
     }
     
     /**
