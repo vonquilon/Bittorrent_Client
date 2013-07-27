@@ -39,12 +39,13 @@ public class FileManager {
 			return false;
 		
 	}
-	/*
-	public byte[] getFile() {
+	
+	public synchronized byte getBitfield() {
 		
-		return file;
+		String bitfieldString = String.valueOf(bitfield);
+		return (byte) Integer.parseInt(bitfieldString, 2);
 		
-	}*/
+	}
 	
 	/**
      * Method that assembles the piece into the file.
