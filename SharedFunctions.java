@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 
 
@@ -138,8 +139,23 @@ public class SharedFunctions {
 
     }
 
+    /**
+     * Method that creates a message for a peer.
+     *
+     * @param lengthPrefix Length of message in bytes excluding lengthPrefix
+     * @param id           Message identifier
+     * @param index        Piece index
+     * @param begin        Byte offset in piece
+     * @param length       Size of requested block
+     * @param byteSize     Size of expected message
+     * @param payload      The payload of this message
+     * @return message 	   The created message in byte[] form
+     */
     public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize, byte[] payload) {
         byte[] message = createMessage(lengthPrefix,id,index,begin,length,byteSize);
+        if(payload == null || payload.length == 0) {
+            return message;
+        }
         byte[] totalMessage = Arrays.copyOf(message, message.length + payload.length);
         System.arraycopy(payload,0,totalMessage,totalMessage.length,payload.length);
         return totalMessage;
@@ -164,6 +180,16 @@ public class SharedFunctions {
         else
             return messages[message[4]];
 
+    }
+
+    /**
+     * Gets the length of a message as specified in its format
+     * @param message the message to parse
+     * @return the length as specified by the message
+     */
+    public static int lengthOfMessage(byte[] message) {
+        message = Arrays.copyOfRange(message,0,4);
+        return ByteBuffer.wrap(message).order(ByteOrder.BIG_ENDIAN).getInt();
     }
 
 }
