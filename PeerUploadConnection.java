@@ -67,7 +67,7 @@ public class PeerUploadConnection extends Thread{
                     }
                 }
                 if(hasData) {
-                    byte[] bitfieldMessage = new byte[5+file.bitfield.length];
+
 
                 }
 

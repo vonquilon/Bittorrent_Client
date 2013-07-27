@@ -6,8 +6,8 @@ import java.util.Arrays;
 
 
 public class SharedFunctions {
-	
-	 /**
+
+    /**
      * Method that creates a handshake message for a peer.
      *
      * @param infoHashBytes
@@ -33,7 +33,7 @@ public class SharedFunctions {
         return handshakeMessage;
 
     }
-    
+
     /**
      * Method that obtains the response data from a peer.
      *
@@ -69,7 +69,7 @@ public class SharedFunctions {
             return messageFromPeer;
 
     }
-    
+
     /**
      * Method that verifies if the info hash from the
      * peer's handshake matches that of the created handshake.
@@ -90,7 +90,7 @@ public class SharedFunctions {
         return true;
 
     }
-    
+
     /**
      * Method that creates a message for a peer.
      *
@@ -100,7 +100,7 @@ public class SharedFunctions {
      * @param begin        Byte offset in piece
      * @param length       Size of requested block
      * @param byteSize     Size of expected message
-     * @return message 	   The created message in byte[] form
+     * @return message       The created message in byte[] form
      */
     public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize) {
 
@@ -149,23 +149,22 @@ public class SharedFunctions {
      * @param length       Size of requested block
      * @param byteSize     Size of expected message
      * @param payload      The payload of this message
-     * @return message 	   The created message in byte[] form
+     * @return message       The created message in byte[] form
      */
     public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize, byte[] payload) {
-        byte[] message = createMessage(lengthPrefix,id,index,begin,length,byteSize);
-        if(payload == null || payload.length == 0) {
+        byte[] message = createMessage(lengthPrefix, id, index, begin, length, byteSize);
+        if (payload == null || payload.length == 0) {
             return message;
         }
-        byte[] totalMessage = concat(payload, message);
+        return concat(payload, message);
+    }
+
+    public static byte[] concat(byte[] b1, byte[] b2) {
+        byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
+        System.arraycopy(b1, 0, totalMessage, totalMessage.length, b1.length);
         return totalMessage;
     }
 
-    private static byte[] concat(byte[] b1, byte[] b2) {
-        byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
-        System.arraycopy(b1,0,totalMessage,totalMessage.length,b1.length);
-        return totalMessage;
-    }
-    
     /**
      * Method that decodes a byte[] message into
      * a readable string.
@@ -189,33 +188,64 @@ public class SharedFunctions {
 
     /**
      * Gets the length of a message as specified in its format
+     *
      * @param message the message to parse
      * @return the length as specified by the message
      */
     public static int lengthOfMessage(byte[] message) {
-        message = Arrays.copyOfRange(message,0,4);
+        message = Arrays.copyOfRange(message, 0, 4);
         return ByteBuffer.wrap(message).order(ByteOrder.BIG_ENDIAN).getInt();
     }
 
     /**
      * Method that takes an entire peer message and returns its payload
+     *
      * @param message message from a peer, including the length and id fields
-     * @param length length of the message
+     * @param length  length of the message
      * @return payload of message
      */
     public static byte[] payloadOfMessage(byte[] message, int length) {
-        return Arrays.copyOfRange(message,5,length-5);
+        return Arrays.copyOfRange(message, 5, length - 5);
     }
-
-
 
     /**
      * Method that takes an entire peer message and returns its payload
+     *
      * @param message message from a peer, including the length and id fields
      * @return payload of message
      */
     public static byte[] payloadOfMessage(byte[] message) {
-        return payloadOfMessage(message,lengthOfMessage(message));
+        return payloadOfMessage(message, lengthOfMessage(message));
+    }
+
+    /**
+     * Method that compresses the FileManager's representation of the bitfield (a char[]) into a byte array for sending to a peer
+     *
+     * @param bitfield the FileManager's representation of the bitfield
+     * @return the compressed bitfield
+     */
+    public static byte[] compressBitfield(char[] bitfield) {
+        int byteNumber = 0;
+        byte currentByte = 0;
+        byte[] compressedBitfield = new byte[(bitfield.length+7)/8];
+        for(int i = 0; i < bitfield.length; i++) {
+            int byteIndex = i % 8;
+            if(byteIndex == 0 && i != 0) {
+                compressedBitfield[byteNumber] = currentByte;
+                byteNumber++;
+                currentByte = 0;
+            }
+            //01234567
+            if(bitfield[i] == '1') {
+                currentByte |= 1 << (7-byteIndex);
+            }
+            else if(bitfield[i] == '0') {
+            }
+            else {
+                throw new IllegalArgumentException();
+            }
+        }
+        return compressedBitfield;
     }
 
 }
