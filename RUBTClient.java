@@ -1,8 +1,12 @@
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+
+import javax.swing.AbstractAction;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JSplitPane;
 
 /**
  * RUBTClient is a simple BitTorrent client that parses a torrent file
@@ -13,14 +17,74 @@ import java.util.ArrayList;
  * @version 1.0
  */
 public class RUBTClient {
+	
+	private String torrent, fileName;
+	private JFrame window = new JFrame();
+	private JPanel leftPanel = new JPanel();
+	private JPanel rightPanel = new JPanel();
+	private JButton start;
+	private JButton exit; 
 
 	/**
 	 * CONSTRUCTOR
 	 */
-    public RUBTClient() {
-
+    public RUBTClient(String torrent, String fileName) {
+    	this.torrent = torrent;
+    	this.fileName = fileName;
+    	
+    	window.getContentPane().removeAll();
+        window.setPreferredSize(new Dimension(320, 100));
+        JSplitPane splitPane = new JSplitPane();
+        window.getContentPane().add(splitPane);
+        
+        leftPanel.setPreferredSize(new Dimension(160, 100));
+        createStartButton();
+        leftPanel.add(start);
+        splitPane.setLeftComponent(leftPanel);
+        
+        rightPanel.setPreferredSize(new Dimension(160, 100));
+        createExitButton();
+        rightPanel.add(exit);
+        splitPane.setRightComponent(rightPanel);
+        
+        window.pack();
+        start.setVisible(true);
+        exit.setVisible(true);
+        window.setVisible(true);
     }
+    
+    @SuppressWarnings("serial")
+	private void createStartButton() {
+    	start = new JButton( new AbstractAction("Start") {
+            @Override
+            public void actionPerformed( ActionEvent e ) {
+            	try {
+                    byte[] peerID = Functions.generatePeerID();
+                    TorrentFile torrentFile = readInTorrentFile(torrent);
 
+                    Object[] torrentInfo = parseTorrentFile(torrentFile);
+                    byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
+
+                    ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
+                    PeerConnection.downloadFile(peers, torrentFile, peerID, fileName);
+                } catch (Exception exception) {
+                	System.err.println("Could not save to " +fileName);
+                }
+            }
+        });
+    }
+    
+    @SuppressWarnings("serial")
+	private void createExitButton() {
+    	exit = new JButton( new AbstractAction("Exit") {
+            @Override
+            public void actionPerformed( ActionEvent e ) {
+            	window.dispose();
+            	System.exit(0);
+            }
+        });
+    }
+    
     /**
      * This method returns a new TorrentFile class.
      * 
@@ -71,38 +135,8 @@ public class RUBTClient {
      * 			   args[1]: name of file to save data to
      */
     public static void main(String args[]) {
-    	
-        try {
-            byte[] peerID = Functions.generatePeerID();
-            TorrentFile torrentFile = readInTorrentFile(args[0]);
-
-            Object[] torrentInfo = parseTorrentFile(torrentFile);
-            byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
-
-            ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
-            PeerConnection.downloadFile(peers, torrentFile, peerID, args[1]);
-
-            //saveDownloadedFile(args[1], file);
-        } catch (Exception e) {
-        	System.err.println("Could not save to " + args[1]);
-        }
+    	RUBTClient rubtClient = new RUBTClient(args[0], args[1]);
         
-    }
-
-    /**
-     * Private helper method that saves the downloaded data into the disk.
-     * 
-     * @param downloadedFilename Name of file to save to
-     * @param fileData Data to be saved in bytes
-     */
-    private static void saveDownloadedFile(String downloadedFilename, byte[] fileData) {
-    	
-        try (FileOutputStream fileWriter = new FileOutputStream(downloadedFilename)) {
-            fileWriter.write(fileData);
-            System.out.println("\nSaved file as " + downloadedFilename);
-        } catch (IOException e) {
-            System.err.println("Could not save to " + downloadedFilename);
-        }
         
     }
 }
