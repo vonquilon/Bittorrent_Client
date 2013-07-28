@@ -96,64 +96,27 @@ public class SharedFunctions {
      * Method that creates a message for a peer.
      *
      * @param lengthPrefix Length of message in bytes excluding lengthPrefix
-     * @param id           Message identifier
-     * @param index        Piece index
-     * @param begin        Byte offset in piece
-     * @param length       Size of requested block
-     * @param byteSize     Size of expected message
-     * @return message       The created message in byte[] form
+     * @param messageID Message identifier
+     *
      */
-    public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize) {
-
-        byte[] message = new byte[byteSize];
-        int offset = 0;
-
-        if (lengthPrefix >= 0) {
-            byte[] temp = new byte[]{0, 0, 0, (byte) lengthPrefix};
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (id >= 0) {
-            message[offset] = (byte) id;
-            offset++;
-        }
-
-        if (index >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(index).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (begin >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(begin).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (length >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(length).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-        }
-
-        return message;
-
+    public static byte[] createMessage(int lengthPrefix, byte messageID) {
+        ByteBuffer buffer = ByteBuffer.allocate(5);
+        buffer.order(ByteOrder.BIG_ENDIAN);
+        buffer.putInt(lengthPrefix);
+        buffer.put(messageID);
+        return buffer.array();
     }
 
     /**
      * Method that creates a message for a peer.
      *
      * @param lengthPrefix Length of message in bytes excluding lengthPrefix
-     * @param id           Message identifier
-     * @param index        Piece index
-     * @param begin        Byte offset in piece
-     * @param length       Size of requested block
-     * @param byteSize     Size of expected message
+     * @param messageID    Message identifier
      * @param payload      The payload of this message
      * @return message       The created message in byte[] form
      */
-    public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize, byte[] payload) {
-        byte[] message = createMessage(lengthPrefix, id, index, begin, length, byteSize);
+    public static byte[] createMessage(int lengthPrefix, byte messageID, byte[] payload) {
+        byte[] message = createMessage(lengthPrefix, messageID);
         if (payload == null || payload.length == 0) {
             return message;
         }
@@ -276,6 +239,12 @@ public class SharedFunctions {
                 break;
             }
         }
+        //get the raw char data from the arraylist and put it into the char[] to return
+        char[] charArrayBitfield = new char[newBitfield.size()];
+        for (int i = 0; i < newBitfield.size(); i++) {
+            charArrayBitfield[i] = newBitfield.get(i);
+        }
+        return charArrayBitfield;
     }
 
 }
