@@ -91,7 +91,6 @@ public class SharedFunctions {
         return true;
 
     }
-
     /**
      * Method that creates a message for a peer.
      *
@@ -125,7 +124,7 @@ public class SharedFunctions {
 
     public static byte[] concat(byte[] b1, byte[] b2) {
         byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
-        System.arraycopy(b1, 0, totalMessage, totalMessage.length, b1.length);
+        System.arraycopy(b1, 0, totalMessage, b2.length, b1.length);
         return totalMessage;
     }
 
@@ -169,7 +168,7 @@ public class SharedFunctions {
      * @return payload of message
      */
     public static byte[] payloadOfMessage(byte[] message, int length) {
-        return Arrays.copyOfRange(message, 5, length - 5);
+        return Arrays.copyOfRange(message, 5, length+4);
     }
 
     /**
