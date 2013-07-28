@@ -1,3 +1,5 @@
+package development;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,7 +56,7 @@ public class FileManager {
      *                  of the piece in the file
      * @param piece     Piece to be assembled into file
      * @param pieceSize
-	 * @throws IOException 
+	 * @throws java.io.IOException
      */
 	public synchronized void putPieceInFile(int index, byte[] piece, int pieceSize) throws IOException {
 
