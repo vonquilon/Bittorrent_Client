@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 
@@ -240,12 +241,41 @@ public class SharedFunctions {
                 currentByte |= 1 << (7-byteIndex);
             }
             else if(bitfield[i] == '0') {
+
             }
             else {
                 throw new IllegalArgumentException();
             }
         }
+        compressedBitfield[byteNumber] = currentByte;
+
         return compressedBitfield;
+    }
+
+    /**
+     * Method that decompresses the network's representation of the bitfield (a byte[]) into a char array for easier reading
+     *
+     * @param bitfield the network's representation of the bitfield
+     * @return the compressed bitfield
+     */
+    public static char[] decompressBitfield(byte[] bitfield) {
+        ArrayList<Character> newBitfield = new ArrayList<>();
+        //convert the bitfield to a binary string, then to a char array, then add all the chars in the array to the bitfield
+        for(byte b : bitfield) {
+            String decompressedBitfield = String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
+            for(char c : decompressedBitfield.toCharArray()) {
+                newBitfield.add(c);
+            }
+        }
+        //remove the 0 bits used as padding at the end of the byte[] bitfield
+        for(int i = newBitfield.size()-1; i >= 0; i++) {
+            if(newBitfield.get(i) == '0') {
+                newBitfield.remove(i);
+            }
+            else {
+                break;
+            }
+        }
     }
 
 }
