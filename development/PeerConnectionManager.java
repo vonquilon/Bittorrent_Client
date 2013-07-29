@@ -20,6 +20,7 @@ public class PeerConnectionManager {
     TorrentFile torrentFile;
     byte[] peerID;
     FileManager file;
+
     /**
      * Constructor for the manager, which handles all coordination of the connections
      * @param peers list of all peers
@@ -44,10 +45,6 @@ public class PeerConnectionManager {
         }
     }
 
-    public void addNewConnection(PeerConnection connection) {
-        activeConnections.add(connection);
-    }
-
     public void startDownloading() {
 
     }
@@ -55,26 +52,25 @@ public class PeerConnectionManager {
 
 class ServerSocketAcceptThread extends Thread{
     ServerSocket socket;
-    List<PeerConnection> activeConnections;
+    PeerConnection newConnection;
 
     TorrentFile torrentFile;
     byte[] peerID;
     FileManager file;
 
-    ServerSocketAcceptThread(ServerSocket socket, FileManager file, byte[] peerID, TorrentFile torrentFile, List<PeerConnection> activeConnections) {
+    ServerSocketAcceptThread(ServerSocket socket, FileManager file, byte[] peerID, TorrentFile torrentFile) {
         this.socket = socket;
         this.file = file;
         this.peerID = peerID;
         this.torrentFile = torrentFile;
-        this.activeConnections = activeConnections;
+        newConnection = null;
     }
 
     @Override
     public void run() {
         try {
             Socket acceptedSocket = socket.accept();
-            PeerConnection newConnection = new PeerConnection(acceptedSocket, torrentFile, peerID, file);
-            activeConnections.add(newConnection);
+            newConnection = new PeerConnection(acceptedSocket, torrentFile, peerID, file, true);
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
