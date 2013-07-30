@@ -124,6 +124,12 @@ public class SharedFunctions {
         return concat(payload, message);
     }
 
+    /**
+     * Concatenates b1 to b2 and returns the result
+     * @param b1 first byte[] to concatenate
+     * @param b2 second byte[] to concatenate
+     * @return a byte[] that is the concatenation of the two
+     */
     public static byte[] concat(byte[] b1, byte[] b2) {
         byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
         System.arraycopy(b1, 0, totalMessage, b2.length, b1.length);

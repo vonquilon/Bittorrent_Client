@@ -1,14 +1,17 @@
 package development;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.*;
 
 class PeerConnection extends Thread {
+    FileManager fileManager;
+
+    TorrentFile torrentFile;
+    byte[] myPeerID;
 
     Socket connectionSocket = null;
     ServerSocket serverSocket = null;
@@ -21,16 +24,20 @@ class PeerConnection extends Thread {
     boolean connectedToPeer;
 
     //initializes this connection as a socket already connected to a peer
-    public PeerConnection(Socket socketToPeer, List<PeerConnection> allConnections) {
+    public PeerConnection(Socket socketToPeer, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         connectionSocket = socketToPeer;
         this.allConnections = allConnections;
         connectedToPeer = true;
+        this.torrentFile = torrentFile;
+        this.fileManager = fileManager;
     }
     //initializes this connecton as a server socket waiting for a peer to connect to it
-    public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections) {
+    public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         serverSocket = socket;
         this.allConnections = allConnections;
-        connectedToPeer = true;
+        connectedToPeer = true;;
+        this.torrentFile = torrentFile;
+        this.fileManager = fileManager;
     }
 
     public void run() {
@@ -54,14 +61,20 @@ class PeerConnection extends Thread {
                 uploadConnection.run();
 
                 //send handshake to peer
-
+                byte[] handshakeMessageToSend = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
+                toPeer.write(handshakeMessageToSend);
                 //send bitfield to peer
-
+                byte[] byteBitfield = SharedFunctions.compressBitfield(fileManager.bitfield);
+                //length = 1 + ceil(number of pieces/8)
+                int messageLength = 1 + (fileManager.bitfield.length + 7) / 8;
+                byte[] bitfieldMessageToSend = SharedFunctions.createMessage(messageLength, (byte)5, byteBitfield);
+                toPeer.write(bitfieldMessageToSend);
                 //wait for handshake from peer
-
+                byte[] handshakeMessageReceived = getNextMessage(fromPeer);
                 //validate peer's handshake
 
                 //wait for bitfield from peer
+                byte[] bitfieldMessageReceived = getNextMessage(fromPeer);
 
                 //validate peer's bitfield
 
@@ -75,7 +88,7 @@ class PeerConnection extends Thread {
 
                 //if the id is keep-alive, then skip this message
 
-                //elif the id belongs to download (choke, unchoke, piece) then insert it into downloadConnection.incomingMessageQueue
+                //elif the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
 
                 //elif the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
 
@@ -94,9 +107,19 @@ class PeerConnection extends Thread {
             } catch (InterruptedException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
+            connectionSocket = null;
         }
 
 
+    }
+
+    private byte[] getNextMessage(InputStream fromPeer) throws IOException {
+        byte[] lengthBytes = new byte[4];
+        fromPeer.read(lengthBytes);
+        int length = SharedFunctions.lengthOfMessage(lengthBytes);
+        byte[] message = new byte[length];
+        fromPeer.read(message);
+        return message;
     }
 }
 
@@ -111,7 +134,7 @@ class PeerDownloadConnection extends Thread {
 
     public PeerDownloadConnection(OutputStream toPeer) {
         this.toPeer = toPeer;
-        incomingMessageQueue = new PriorityQueue<byte[]>();
+        incomingMessageQueue = new LinkedList<>();
         choked = true;
         interested = false;
     }
