@@ -14,7 +14,6 @@ import java.util.List;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnectionManager {
-    List<ServerSocket> serverSockets;
     List<PeerConnection> activeConnections;
 
     TorrentFile torrentFile;
@@ -39,40 +38,9 @@ public class PeerConnectionManager {
         }
         activeConnections = new ArrayList<>();
         FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
-        for(ServerSocket serverSocket : serverSockets) {
-            ServerSocketAcceptThread acceptThread = new ServerSocketAcceptThread(serverSocket,fileManager,peerID,torrentFile,activeConnections);
-            acceptThread.run();
-        }
     }
 
     public void startDownloading() {
 
-    }
-}
-
-class ServerSocketAcceptThread extends Thread{
-    ServerSocket socket;
-    PeerConnection newConnection;
-
-    TorrentFile torrentFile;
-    byte[] peerID;
-    FileManager file;
-
-    ServerSocketAcceptThread(ServerSocket socket, FileManager file, byte[] peerID, TorrentFile torrentFile) {
-        this.socket = socket;
-        this.file = file;
-        this.peerID = peerID;
-        this.torrentFile = torrentFile;
-        newConnection = null;
-    }
-
-    @Override
-    public void run() {
-        try {
-            Socket acceptedSocket = socket.accept();
-            newConnection = new PeerConnection(acceptedSocket, torrentFile, peerID, file, true);
-        } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        }
     }
 }

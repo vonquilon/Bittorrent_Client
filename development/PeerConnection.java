@@ -23,6 +23,10 @@ class PeerConnection extends Thread {
 
     boolean connectedToPeer;
 
+    boolean active;
+
+    char[] peerBitfield;
+
     //initializes this connection as a socket already connected to a peer
     public PeerConnection(Socket socketToPeer, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         connectionSocket = socketToPeer;
@@ -35,19 +39,24 @@ class PeerConnection extends Thread {
     public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         serverSocket = socket;
         this.allConnections = allConnections;
-        connectedToPeer = true;;
+        connectedToPeer = false;
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
     }
 
     public void run() {
         try{
-            while(connectedToPeer) {
-                boolean peerInitiated = false;
+            active = true;
+            while(active) {
                 if(connectionSocket == null && serverSocket != null) {
                     connectionSocket = serverSocket.accept();
-                    peerInitiated = true;
+                    connectedToPeer = true;
                 }
+                else if(serverSocket == null && connectionSocket == null) {
+                    //both are null when the connection is no longer active
+                    break;
+                }
+
                 //3 minute timeout
                 connectionSocket.setSoTimeout(60 * 3000);
 
@@ -70,29 +79,40 @@ class PeerConnection extends Thread {
                 byte[] bitfieldMessageToSend = SharedFunctions.createMessage(messageLength, (byte)5, byteBitfield);
                 toPeer.write(bitfieldMessageToSend);
                 //wait for handshake from peer
-                byte[] handshakeMessageReceived = getNextMessage(fromPeer);
+                byte[] handshakeMessageReceived = getNextPartialMessage(fromPeer);
                 //validate peer's handshake
-
+                if(!validateHandshake(handshakeMessageReceived)) {
+                    closeConnection();
+                    continue;
+                }
                 //wait for bitfield from peer
-                byte[] bitfieldMessageReceived = getNextMessage(fromPeer);
-
+                byte[] bitfieldMessageReceived = getNextPartialMessage(fromPeer);
                 //validate peer's bitfield
+                if(!validateBitfield(bitfieldMessageReceived)) {
+                    closeConnection();
+                    continue;
+                }
+                //set peer's bitfield
+                byte[] payload = SharedFunctions.payloadOfPartialMessage(bitfieldMessageReceived);
+                peerBitfield = SharedFunctions.decompressBitfield(payload);
 
 
+                while(connectedToPeer) {
 
-                //read in the first 4 bytes from the input stream
+                    //read in the first 4 bytes from the input stream
 
-                //based on that first 4 bytes (the length field) get the rest of the message
+                    //based on that first 4 bytes (the length field) get the rest of the message
 
-                //get the type of the message from its id
+                    //get the type of the message from its id
 
-                //if the id is keep-alive, then skip this message
+                    //if the id is keep-alive, then skip this message
 
-                //elif the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
+                    //elif the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
 
-                //elif the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
+                    //elif the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
 
-                //else the message is unidentified; forget about it
+                    //else the message is unidentified; forget about it
+                }
             }
         }
         catch(Exception e) {
@@ -104,7 +124,8 @@ class PeerConnection extends Thread {
             try {
                 downloadConnection.join();
                 uploadConnection.join();
-            } catch (InterruptedException e) {
+                connectionSocket.close();
+            } catch (InterruptedException | IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
             connectionSocket = null;
@@ -113,7 +134,46 @@ class PeerConnection extends Thread {
 
     }
 
-    private byte[] getNextMessage(InputStream fromPeer) throws IOException {
+    private boolean validateHandshake(byte[] handshakeMessageReceived) {
+        if(handshakeMessageReceived.length == 68) {
+            byte[] protocolMessage = new byte[19];
+            System.arraycopy(handshakeMessageReceived,1,protocolMessage,0,19);
+            byte[] sha1Hash = new byte[20];
+            System.arraycopy(handshakeMessageReceived,28,sha1Hash,0,20);
+            /*
+            byte[] peerID = new byte[20];
+            System.arraycopy(handshakeMessageReceived,48,sha1Hash,0,20);
+            */
+            return handshakeMessageReceived[0] == 19 && Arrays.equals(protocolMessage,"BitTorrent protocol".getBytes()) && Arrays.equals(sha1Hash,torrentFile.getInfoHashBytes());
+        }
+        return false;
+    }
+
+    private boolean validateBitfield(byte[] bitfieldMessageReceived) {
+        return SharedFunctions.decodePartialMessage(bitfieldMessageReceived).equals("bitfield");
+    }
+
+    private void closeConnection() throws IOException {
+        //connection was started from the server socket; close the connection
+        connectionSocket.close();
+        connectionSocket = null;
+        if(serverSocket != null) {
+            //connection was provided by the server socket, so just close it so that we can re-accept
+            serverSocket.close();
+        }
+        else {
+            //connection was started from the socket, close the socket and remove this connection from the list of connections
+            allConnections.remove(this);
+        }
+    }
+
+    /**
+     * Gets the next partial (without a length field) message from the peer
+     * @param fromPeer The stream to read from
+     * @return next partial message
+     * @throws IOException if read failure
+     */
+    private byte[] getNextPartialMessage(InputStream fromPeer) throws IOException {
         byte[] lengthBytes = new byte[4];
         fromPeer.read(lengthBytes);
         int length = SharedFunctions.lengthOfMessage(lengthBytes);
