@@ -3,6 +3,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.*;
 
 class PeerConnection extends Thread {
@@ -33,6 +34,7 @@ class PeerConnection extends Thread {
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
         this.myPeerID = myPeerID;
+        //this.setDaemon(true);
     }
     //initializes this connecton as a server socket waiting for a peer to connect to it
     public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
@@ -42,6 +44,7 @@ class PeerConnection extends Thread {
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
         this.myPeerID = myPeerID;
+        //this.setDaemon(true);
     }
 
 
@@ -60,7 +63,7 @@ class PeerConnection extends Thread {
                 }
 
                 //3 minute timeout
-                connectionSocket.setSoTimeout(60 * 3000);
+                connectionSocket.setSoTimeout(60 * 300);
 
                 InputStream fromPeer = connectionSocket.getInputStream();
                 OutputStream toPeer = connectionSocket.getOutputStream();
@@ -71,49 +74,75 @@ class PeerConnection extends Thread {
                 downloadConnection.start();
                 uploadConnection.start();
 
-                //send handshake to peer
-                byte[] handshakeMessageToSend = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
-                toPeer.write(handshakeMessageToSend);
-                //send bitfield to peer
-                byte[] byteBitfield = SharedFunctions.compressBitfield(fileManager.bitfield);
-                //length = 1 + ceil(number of pieces/8)
-                int messageLength = 1 + (fileManager.bitfield.length + 7) / 8;
-                byte[] bitfieldMessageToSend = SharedFunctions.createMessage(messageLength, (byte)5, byteBitfield);
-                toPeer.write(bitfieldMessageToSend);
-                //wait for handshake from peer
-                byte[] handshakeMessageReceived = getNextPartialMessage(fromPeer);
-                //validate peer's handshake
-                if(!validateHandshake(handshakeMessageReceived)) {
+                byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
+                toPeer.write(handshakeMessage);
+                //new code added by me
+                byte[] bitfield = new String(fileManager.bitfield).getBytes();
+                //turns '0' -> 0 (int), '1' -> 1 (int)
+                for(int i = 0; i < bitfield.length; i++) {
+                    bitfield[i] -= 48;
+                }
+                byte[] bitfieldMessage = SharedFunctions.createMessage(5+bitfield.length,(byte)5,bitfield);
+                toPeer.write(bitfieldMessage);
+
+
+                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+6, connectionSocket.getInetAddress().toString());
+                ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
+                ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
+                if (!SharedFunctions.verifyInfoHash(handshakeMessage, messageFromPeer)) {
                     closeConnection();
                     continue;
                 }
-                //wait for bitfield from peer
-                byte[] bitfieldMessageReceived = getNextPartialMessage(fromPeer);
-                //validate peer's bitfield
-                if(!validateBitfield(bitfieldMessageReceived)) {
-                    closeConnection();
-                    continue;
-                }
-                //set peer's bitfield
-                byte[] payload = SharedFunctions.payloadOfPartialMessage(bitfieldMessageReceived);
-                peerBitfield = SharedFunctions.decompressBitfield(payload);
 
 
+                int messageLength = -1;
                 while(connectedToPeer) {
+                    try {
+                        sleep(200);
 
-                    //read in the first 4 bytes from the input stream
+                        //if length not defined, read in the first 4 bytes from the input stream; if we don't have enough bytes yet, then try again later
+                        if(messageLength == -1) {
+                            byte[] lengthBytes = new byte[4];
+                            fromPeer.read(lengthBytes);
+                            messageLength = SharedFunctions.lengthOfMessage(lengthBytes);
+                        }
+                        //based on the length, get the rest of the message
+                        byte[] message = new byte[messageLength];
+                        fromPeer.read(message);
+                        //get the type of the message from its id
+                        String type = SharedFunctions.decodePartialMessage(message);
 
-                    //based on that first 4 bytes (the length field) get the rest of the message
+                        //if the id is keep-alive, then skip this message since the socket's 3 minute timeout has already been reset
+                        if(type.equals("keep-alive")) {
+                            continue;
+                        }
 
-                    //get the type of the message from its id
-
-                    //if the id is keep-alive, then skip this message
-
-                    //elif the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
-
-                    //elif the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
-
-                    //else the message is unidentified; forget about it
+                        switch(type) {
+                            //if the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
+                            case "choke":
+                            case "unchoke":
+                            case "piece":
+                            case "have":
+                                downloadConnection.incomingMessageQueue.offer(message);
+                                break;
+                            //if the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
+                            case "interested":
+                            case "not interested":
+                            case "request":
+                                uploadConnection.incomingMessageQueue.offer(message);
+                                break;
+                            //skip it because this message's type is invalid
+                            default:
+                                break;
+                        }
+                    } catch (SocketTimeoutException e) {
+                        System.out.println("Socket to peer " + connectionSocket.getInetAddress().toString() + " timed out.");
+                        connectedToPeer = false;
+                        if(serverSocket == null) {
+                            active = false;
+                            allConnections.remove(this);
+                        }
+                    }
                 }
             }
         }
@@ -133,6 +162,48 @@ class PeerConnection extends Thread {
             connectionSocket = null;
         }
 
+
+    }
+
+
+    /**
+     * Private helper method that separates a data that contains two different information.
+     *
+     * @param attachedMessage The data to be separated
+     * @param message1Length  Used for obtaining message2Length:
+     *                        message2Length=attachedMessage.length-message1Length
+     */
+    private static ArrayList<byte[]> detachMessage(byte[] attachedMessage, int message1Length) {
+
+        byte[] message1 = new byte[message1Length];
+        int message2Length = attachedMessage.length - message1Length;
+        byte[] message2 = new byte[message2Length];
+        ArrayList<byte[]> detachedData = new ArrayList<byte[]>(2);
+
+        //copies header data into message byte[]
+        System.arraycopy(attachedMessage, 0, message1, 0, message1Length);
+        detachedData.add(message1);
+        //copies piece data into piece byte[]
+        System.arraycopy(attachedMessage, message1Length, message2, 0, message2Length);
+        detachedData.add(message2);
+
+        return detachedData;
+
+    }
+
+    private static ArrayList<Integer> getIndexes(byte[] bitfieldMessage, int numberOfPieces) throws IOException {
+
+        if(SharedFunctions.decodeMessage(bitfieldMessage).equals("bitfield")) {
+            ArrayList<Integer> indexes = new ArrayList<Integer>(numberOfPieces);
+            String bitfield = Integer.toBinaryString(bitfieldMessage[5] & 0xFF);
+            for(int i = 0; i < numberOfPieces; i++) {
+                if(bitfield.charAt(i) == '1')
+                    indexes.add(i);
+            }
+            return indexes;
+        }
+        else
+            throw new IOException("Invalid bitfield message!");
 
     }
 
@@ -177,9 +248,23 @@ class PeerConnection extends Thread {
      */
     private byte[] getNextPartialMessage(InputStream fromPeer) throws IOException {
         byte[] lengthBytes = new byte[4];
+        while(fromPeer.available() < lengthBytes.length) {
+            try {
+                sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
         fromPeer.read(lengthBytes);
         int length = SharedFunctions.lengthOfMessage(lengthBytes);
         byte[] message = new byte[length];
+        while(fromPeer.available() < message.length) {
+            try {
+                sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
         fromPeer.read(message);
         return message;
     }
