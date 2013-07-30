@@ -16,9 +16,13 @@ import java.util.List;
 public class PeerConnectionManager {
     List<PeerConnection> activeConnections;
 
+    ArrayList<String> peers;
     TorrentFile torrentFile;
     byte[] peerID;
     FileManager file;
+
+    int lowServerSocketPortRange;
+    int highServerSocketPortRange;
 
     /**
      * Constructor for the manager, which handles all coordination of the connections
@@ -28,19 +32,32 @@ public class PeerConnectionManager {
      * @param fileName
      */
     public PeerConnectionManager(int lowServerSocketPortRange, int highServerSocketPortRange, ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID, String fileName) throws IOException {
-        serverSockets = new ArrayList<>();
-        for(int i = lowServerSocketPortRange; i <= highServerSocketPortRange; i++) {
-            try {
-                serverSockets.add(new ServerSocket(i));
-            } catch (IOException e) {
-                System.out.println("Warning: unable to create socket on port " + i + '.');
-            }
-        }
+        this.peers = peers;
         activeConnections = new ArrayList<>();
-        FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
+        this.lowServerSocketPortRange = lowServerSocketPortRange;
+        this.highServerSocketPortRange = highServerSocketPortRange;
+        this.peerID = peerID;
+        file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
     }
 
     public void startDownloading() {
-
+        for(int i = lowServerSocketPortRange; i <= highServerSocketPortRange; i++) {
+            try {
+                activeConnections.add(new PeerConnection(new ServerSocket(i),activeConnections,torrentFile, peerID, file));
+            } catch (IOException e) {
+                System.out.println("Warning: unable to create server socket on port " + i + '.');
+            }
+        }
+        for(String peer : peers) {
+            String[] splitted = peer.split(":");
+            assert splitted.length == 2;
+            if(splitted[0].equals("128.6.171.3") || splitted[0].equals("128.6.171.4")) {
+                try {
+                    activeConnections.add(new PeerConnection(new Socket(splitted[0],Integer.parseInt(splitted[1])), activeConnections,torrentFile, peerID, file));
+                } catch (IOException e) {
+                    System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
+                }
+            }
+        }
     }
 }

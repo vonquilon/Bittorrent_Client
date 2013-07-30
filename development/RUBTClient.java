@@ -63,7 +63,8 @@ public class RUBTClient {
                     byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
 
                     ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
-                    PeerConnection.downloadFile(peers, torrentFile, peerID, fileName);
+                    PeerConnectionManager peerConnectionManager = new PeerConnectionManager(6881, 6889, peers, torrentFile, peerID, fileName);
+                    peerConnectionManager.startDownloading();
                 } catch (Exception exception) {
                 	System.err.println("Could not save to " +fileName);
                 }

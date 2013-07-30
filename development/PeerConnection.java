@@ -44,6 +44,8 @@ class PeerConnection extends Thread {
         this.fileManager = fileManager;
     }
 
+
+
     public void run() {
         try{
             active = true;
