@@ -18,18 +18,19 @@ import javax.swing.JSplitPane;
  */
 public class RUBTClient {
 	
-	private String torrent, fileName;
+	private String fileName;
 	private JFrame window = new JFrame();
 	private JPanel leftPanel = new JPanel();
 	private JPanel rightPanel = new JPanel();
 	private JButton start;
 	private JButton exit; 
+	private TorrentFile torrentFile;
+	private TrackerConnection trackerConnection;
 
 	/**
 	 * CONSTRUCTOR
 	 */
     public RUBTClient(String torrent, String fileName) {
-    	this.torrent = torrent;
     	this.fileName = fileName;
     	
     	window.getContentPane().removeAll();
@@ -51,6 +52,8 @@ public class RUBTClient {
         start.setVisible(true);
         exit.setVisible(true);
         window.setVisible(true);
+        
+        torrentFile = new TorrentFile(torrent);
     }
     
     @SuppressWarnings("serial")
@@ -60,12 +63,14 @@ public class RUBTClient {
             public void actionPerformed( ActionEvent e ) {
             	try {
                     byte[] peerID = Functions.generatePeerID();
-                    TorrentFile torrentFile = readInTorrentFile(torrent);
-
-                    Object[] torrentInfo = parseTorrentFile(torrentFile);
-                    byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
-
-                    ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
+                    torrentFile.start();
+                    torrentFile.join();
+                    
+                    trackerConnection = new TrackerConnection(peerID);
+                    trackerConnection.start();
+                    trackerConnection.join();
+                    
+                    ArrayList<String> peers = trackerConnection.getPeers();
                     PeerConnection.downloadFile(peers, torrentFile, peerID, fileName);
                 } catch (Exception exception) {
                 	System.err.println("Could not save to " +fileName);
@@ -83,48 +88,6 @@ public class RUBTClient {
             	System.exit(0);
             }
         });
-    }
-    
-    /**
-     * This method returns a new TorrentFile class.
-     * 
-     * @param torrentFilename Name of torrent file
-     * @return TorrentFile
-     */
-    public static TorrentFile readInTorrentFile(String torrentFilename) {
-    	
-        return new TorrentFile(torrentFilename);
-        
-    }
-
-    /**
-     * This method returns an Object[] that contains a Map,
-     * which is filled with torrent information, and a ByteBuffer
-     * of the info hash.
-     * 
-     * @param torrentFile
-     * @return Object[] Holds torrent information
-     */
-    public static Object[] parseTorrentFile(TorrentFile torrentFile) {
-    	
-        return torrentFile.parseTorrent();
-        
-    }
-
-    /**
-     * This method contacts the tracker and obtains a response from
-     * the tracker.
-     * 
-     * @param torrentInfo Contains torrent information
-     * @param torrentFile
-     * @param peerID 
-     * @return byte[] Tracker response in bytes
-     */
-    public static byte[] contactTracker(Object[] torrentInfo, TorrentFile torrentFile, byte[] peerID) {
-    	
-        TrackerConnection trackerConnection = new TrackerConnection();
-        return trackerConnection.getTrackerResponse(torrentInfo, torrentFile, peerID);
-        
     }
 
     /**
