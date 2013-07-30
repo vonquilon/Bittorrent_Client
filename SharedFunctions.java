@@ -41,7 +41,7 @@ public class SharedFunctions {
      * @param fromPeer InputStream to get data from peer
      * @param size     Length of expected data from peer
      * @return messageFromPeer
-     * @throws IOException Failed to get message from peer
+     * @throws java.io.IOException Failed to get message from peer
      */
     public static byte[] responseFromPeer(InputStream fromPeer, int size, String peerIPAddress) throws IOException {
 
@@ -122,6 +122,12 @@ public class SharedFunctions {
         return concat(payload, message);
     }
 
+    /**
+     * Concatenates b1 to b2 and returns the result
+     * @param b1 first byte[] to concatenate
+     * @param b2 second byte[] to concatenate
+     * @return a byte[] that is the concatenation of the two
+     */
     public static byte[] concat(byte[] b1, byte[] b2) {
         byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
         System.arraycopy(b1, 0, totalMessage, b2.length, b1.length);
@@ -150,6 +156,25 @@ public class SharedFunctions {
     }
 
     /**
+     * Method that decodes a partial (without a length field) byte[] message into
+     * a readable string.
+     *
+     * @param message The byte[] message to be decoded
+     * @return String The readable message
+     */
+    public static String decodePartialMessage(byte[] message) {
+
+        String[] messages = {"choke", "unchoke", "interested", "not interested", "have",
+                "bitfield", "request", "piece", "cancel"};
+
+        if (message.length == 0)
+            return "keep-alive";
+        else
+            return messages[message[0]];
+
+    }
+
+    /**
      * Gets the length of a message as specified in its format
      *
      * @param message the message to parse
@@ -158,6 +183,17 @@ public class SharedFunctions {
     public static int lengthOfMessage(byte[] message) {
         message = Arrays.copyOfRange(message, 0, 4);
         return ByteBuffer.wrap(message).order(ByteOrder.BIG_ENDIAN).getInt();
+    }
+
+    /**
+     * Method that takes a peer message without the length field and returns its payload
+     *
+     * @param message message from a peer, including the length and id fields
+     * @param length  length of the message
+     * @return payload of message
+     */
+    public static byte[] payloadOfPartialMessage(byte[] message, int length) {
+        return Arrays.copyOfRange(message, 1, length);
     }
 
     /**
@@ -179,6 +215,16 @@ public class SharedFunctions {
      */
     public static byte[] payloadOfMessage(byte[] message) {
         return payloadOfMessage(message, lengthOfMessage(message));
+    }
+
+    /**
+     * Method that takes a peer message without the length field and returns its payload
+     *
+     * @param message message from a peer, including the length and id fields
+     * @return payload of message
+     */
+    public static byte[] payloadOfPartialMessage(byte[] message) {
+        return Arrays.copyOfRange(message, 1, message.length);
     }
 
     /**

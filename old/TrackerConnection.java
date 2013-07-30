@@ -1,3 +1,5 @@
+package old;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -15,15 +17,24 @@ import java.util.Map;
  * @authors Von Kenneth Quilon & Alex Loh
  * @date 07/12/2013
  */
-public class TrackerConnection {
+public class TrackerConnection extends Thread{
+	
+	private byte[] response;
+	private Map responseMap;
+	private byte[] peerID;
+	private ArrayList<String> peers;
 	
     /**
      * Initializes the class, which is empty.
      */
-    public TrackerConnection() {
-    	
+    public TrackerConnection(byte[] peerID) {
+    	this.peerID = peerID;
     }
 
+    public ArrayList<String> getPeers() {
+    	return peers;
+    }
+    
     /**
      * This method obtains the response from the tracker after an HTTP GET request.
      * 
@@ -37,56 +48,32 @@ public class TrackerConnection {
      * @return response   Tracker response in a byte[]
      * @throws java.io.IOException Failed to get a response
      */
-    public byte[] getTrackerResponse(Object[] torrentInfo, TorrentFile torrentFile, byte[] peerID) {
-
-        byte[] response = null;
-        torrentFile.getFileInfo(torrentInfo);
-
+    @SuppressWarnings("rawtypes")
+	public void run() {
         try {
-
-            URL url = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), null);
+        	
+            URL url = Functions.makeURL(TorrentFile.getAnnounce(), peerID, TorrentFile.getInfoHashBytes(), 0, 0, TorrentFile.getFileSize(), null);
             System.out.println("HTTP GET\n" + url.toString());
             InputStream is = url.openStream();
             response = new byte[is.available()];
             is.read(response);
             is.close();
             System.out.println("DONE\n");
-
+            
+            responseMap = (Map) Bencoder2.decode(response);
+            peers = decodeCompressedPeers(responseMap);
+            System.out.println("Available peers:\n" + peers.toString() + "\n");
+            
+            int interval = (Integer) TorrentFile.getObjectFromMap(responseMap, "interval");
+            TorrentFile.setInterval(interval);
+            int minInterval = (Integer) TorrentFile.getObjectFromMap(responseMap, "min interval");
+            TorrentFile.setMinInterval(minInterval);
+            
         } catch (IOException e) {
             System.err.println("Failed I/O! Could not get tracker response.");
-            System.exit(1);
-        }
-
-        return response;
-    }
-
-    /**
-     * This method parses the tracker response and returns an ArrayList of peers.
-     * 
-     * Pre-conditions:  response must contain peer information.
-     * Post-conditions: The ArrayList of peers will be returned.
-     *
-     * @param response byte[] of tracker response
-     * @return peers
-     * @throws BencodingException Bencoding error
-     */
-    @SuppressWarnings("rawtypes")
-    public static ArrayList<String> getPeersFromTrackerResponse(byte[] response) {
-
-        Map responseMap = null;
-
-        try {
-            responseMap = (Map) Bencoder2.decode(response);
         } catch (BencodingException e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-
-        ArrayList<String> peers = decodeCompressedPeers(responseMap);
-        System.out.println("Available peers:\n" + peers.toString() + "\n");
-
-        return peers;
-
+			e.printStackTrace();
+		}
     }
 
     /**
@@ -96,7 +83,7 @@ public class TrackerConnection {
      * @param map 		Contains the peers
      * @return peerURLs ArrayList of peers
      */
-    private static ArrayList<String> decodeCompressedPeers(@SuppressWarnings("rawtypes") Map map) {
+    private ArrayList<String> decodeCompressedPeers(@SuppressWarnings("rawtypes") Map map) {
 
         ByteBuffer peers = (ByteBuffer) map.get(ByteBuffer.wrap("peers".getBytes()));
         ArrayList<String> peerURLs = new ArrayList<String>();

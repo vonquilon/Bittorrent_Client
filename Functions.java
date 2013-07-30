@@ -62,7 +62,7 @@ public class Functions {
      * @param left          Bytes left to download
      * @param event         {started, stopped, completed}
      * @return URL 			The created URL object
-     * @throws MalformedURLException Bad URL
+     * @throws java.net.MalformedURLException Bad URL
      */
     public static URL makeURL(String announce, byte[] peerID, byte[] infoHashBytes, int uploaded,
     		int downloaded, int left, String event) throws MalformedURLException {
@@ -140,7 +140,7 @@ public class Functions {
      *
      * @param toEncode 	   The byte[] to be encoded
      * @return sha1Encoded The encoded byte[]
-     * @throws NoSuchAlgorithmException Unknown algorithm
+     * @throws java.security.NoSuchAlgorithmException Unknown algorithm
      */
     public static byte[] encodeToSHA1(byte[] toEncode) {
 

@@ -1,3 +1,5 @@
+package old;
+
 /**
  * This class maintains state on a single end of the connection, either the download or upload end, as according to the BitTorrent specification:
  *

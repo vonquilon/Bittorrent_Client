@@ -1,3 +1,5 @@
+package old;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,7 +40,7 @@ public class PeerDownloadConnection extends Thread{
 	        InputStream fromPeer = connectionSocket.getInputStream();
 	        byte[] message = SharedFunctions.createHandshake(TorrentFile.getInfoHashBytes(), peerID);
 	        toPeer.write(message);
-	        byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, message.length+6, peerIPAddress);
+	        byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, message.length + 6, peerIPAddress);
 	        ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
 	        ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), TorrentFile.getNumberOfPieces());
 	        if (SharedFunctions.verifyInfoHash(message, messageFromPeer)) {

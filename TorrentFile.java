@@ -14,16 +14,15 @@ import java.util.Map;
  * @date 07/12/2013
  * @version 1.0
  */
-public class TorrentFile extends Thread {
+public class TorrentFile {
 	
     String filename;
-    private static String announce;
-    private static byte[] infoHashBytes;
-    private static int fileSize;
-    private static int pieceSize;
-    private static int numberOfPieces;
-    private static ArrayList<byte[]> pieceHashes;
-    private static int interval, minInterval;
+    private String announce;
+    private byte[] infoHashBytes;
+    private int fileSize;
+    private int pieceSize;
+    private int numberOfPieces;
+    private ArrayList<byte[]> pieceHashes;
 
     /**
      * Initializes this object with the specified filename.
@@ -39,7 +38,7 @@ public class TorrentFile extends Thread {
      *
      * @return announce
      */
-    public static String getAnnounce() {
+    public String getAnnounce() {
         return announce;
     }
 
@@ -48,7 +47,7 @@ public class TorrentFile extends Thread {
      *
      * @return pieceHashes
      */
-    public static ArrayList<byte[]> getPieceHashes() {
+    public ArrayList<byte[]> getPieceHashes() {
         return pieceHashes;
     }
 
@@ -57,7 +56,7 @@ public class TorrentFile extends Thread {
      *
      * @return numberOfPieces
      */
-    public static int getNumberOfPieces() {
+    public int getNumberOfPieces() {
         return numberOfPieces;
     }
 
@@ -66,7 +65,7 @@ public class TorrentFile extends Thread {
      *
      * @return piceSize
      */
-    public static int getPieceSize() {
+    public int getPieceSize() {
         return pieceSize;
     }
 
@@ -75,7 +74,7 @@ public class TorrentFile extends Thread {
      *
      * @return fileSize
      */
-    public static int getFileSize() {
+    public int getFileSize() {
         return fileSize;
     }
 
@@ -84,25 +83,10 @@ public class TorrentFile extends Thread {
      *
      * @return infoHashBytes
      */
-    public static byte[] getInfoHashBytes() {
+    public byte[] getInfoHashBytes() {
         return infoHashBytes;
     }
-    
-    public static int getInterval() {
-    	return interval;
-    }
-    
-    public static int getMinInterval() {
-    	return minInterval;
-    }
-    
-    public static void setInterval(int intervalValue) {
-    	interval = intervalValue;
-    }
-    
-    public static void setMinInterval(int minIntervalValue) {
-    	minInterval = minIntervalValue;
-    }
+
 
     /**
      * This method parses the torrent file and puts the torrent information
@@ -115,26 +99,33 @@ public class TorrentFile extends Thread {
      * 					be stored in an Object[].
      *
      * @return torrentInfo 		  Object[] that holds torrent information
-     * @throws IOException        File not found
+     * @throws java.io.IOException        File not found
      * @throws BencodingException Bencoding error
      */
     @SuppressWarnings("rawtypes")
-	public void run() {
-    	System.out.print("Parsing torrent file: " + filename);
-    	Object[] torrentInfo = new Object[2];
+    public Object[] parseTorrent() {
+
+        System.out.print("Parsing torrent file: " + filename);
+        Object[] torrentInfo = new Object[2];
 
         try {
+        	
             Path pathToFile = FileSystems.getDefault().getPath(filename);
             byte[] torrentBencodedInfo = Files.readAllBytes(pathToFile);
             torrentInfo[0] = (Map) Bencoder2.decode(torrentBencodedInfo);
             torrentInfo[1] = Bencoder2.getInfoBytes(torrentBencodedInfo);
+            
         } catch (IOException e) {
             System.err.println("File not found: " + filename);
+            System.exit(1);
         } catch (BencodingException e) {
             e.printStackTrace();
+            System.exit(1);
         }
+
         System.out.print("....................DONE\n");
-        getFileInfo(torrentInfo);
+        return torrentInfo;
+
     }
 
     /**
@@ -145,7 +136,7 @@ public class TorrentFile extends Thread {
      *                    a ByteBuffer of the info dictionary
      */
     @SuppressWarnings("rawtypes")
-    private void getFileInfo(Object[] torrentInfo) {
+    public void getFileInfo(Object[] torrentInfo) {
 
         Map torrentInfoMap = (Map) torrentInfo[0];
 
@@ -178,7 +169,7 @@ public class TorrentFile extends Thread {
      * @param key 	  Locates data in Map
      * @return Object The wanted data
      */
-    public static Object getObjectFromMap(@SuppressWarnings("rawtypes") Map map, String key) {
+    private Object getObjectFromMap(@SuppressWarnings("rawtypes") Map map, String key) {
         return (Object) map.get(ByteBuffer.wrap(key.getBytes()));
     }
 

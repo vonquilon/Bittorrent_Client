@@ -1,92 +1,330 @@
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.*;
 
-/**
- * This class connects to a peer, communicates with the peer,
- * downloads pieces, and puts the pieces together.
- * 
- * @authors Von Kenneth Quilon & Alex Loh
- * @date 07/12/2013
- * @version 1.0
- */
-public class PeerConnection{
-    
-    PeerUploadConnection toPeer;
-    
+class PeerConnection extends Thread {
+    FileManager fileManager;
 
+    TorrentFile torrentFile;
+    byte[] myPeerID;
 
-    /**
-     * Constructs a PeerConnection object connected to the machine with the specified IP address and port
-     * @param ipAddress IP address of the peer, in the form "xxx.xxx.xxx.xxx" (ie. "255.255.255.255")
-     * @param port port that we're connecting to
-     * @throws IOException if unable to connect
-     */
-    public PeerConnection() throws IOException {
-        
+    Socket connectionSocket = null;
+    ServerSocket serverSocket = null;
+
+    PeerDownloadConnection downloadConnection = null;
+    PeerUploadConnection uploadConnection = null;
+
+    List<PeerConnection> allConnections;
+
+    boolean connectedToPeer;
+
+    boolean active;
+
+    char[] peerBitfield;
+
+    //initializes this connection as a socket already connected to a peer
+    public PeerConnection(Socket socketToPeer, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
+        connectionSocket = socketToPeer;
+        this.allConnections = allConnections;
+        connectedToPeer = true;
+        this.torrentFile = torrentFile;
+        this.fileManager = fileManager;
+        this.myPeerID = myPeerID;
+        //this.setDaemon(true);
     }
-    
-    public static void downloadFile(ArrayList<String> peers, byte[] peerID, String fileName) throws IOException {
-
-    	FileManager fileManager = new FileManager(TorrentFile.getFileSize(), TorrentFile.getNumberOfPieces(), fileName);
-    	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
-    	int numberOfPeers = peerIPAddresses.length;
-    	ArrayList<PeerDownloadConnection> downloads = new ArrayList<PeerDownloadConnection>(numberOfPeers);
-    	for(int i = 0; i < numberOfPeers; i++) {
-    		String[] selectedPeer = getAPeer(peers, peerIPAddresses[i]);
-    		String IPaddress = selectedPeer[0];
-            int port = Integer.parseInt(selectedPeer[1]);
-            downloads.add(new PeerDownloadConnection(IPaddress, port, peerID, fileManager));
-    	}
-    	
-    	System.out.println("Download Process: ");
-    	for(int i = 0; i < downloads.size(); i++)
-    		downloads.get(i).start();
-    	for(int i = 0; i < downloads.size(); i++) {
-			try {
-				downloads.get(i).join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-    	}
-    	System.out.println("\nSaved file as " + fileName);
+    //initializes this connecton as a server socket waiting for a peer to connect to it
+    public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
+        serverSocket = socket;
+        this.allConnections = allConnections;
+        connectedToPeer = false;
+        this.torrentFile = torrentFile;
+        this.fileManager = fileManager;
+        this.myPeerID = myPeerID;
+        //this.setDaemon(true);
     }
-    
-    /**
-     * Private helper method that gets a desired peer
-     * from an ArrayList of peers.
-     *
-     * @param peers         ArrayList of available peers
-     * @param peerIPAddress IP address of desired peer
-     * @return String[] 	Contains the selected peer's
-     * 						IP address and port number
-     */
-    private static String[] getAPeer(ArrayList<String> peers, String peerIPAddress) {
 
-        for (String peer : peers) {
-            String[] selectedPeer = peer.split(":");
-            if (selectedPeer[0].equals(peerIPAddress))
-                return selectedPeer;
+
+
+    public void run() {
+        try{
+            active = true;
+            while(active) {
+                if(connectionSocket == null && serverSocket != null) {
+                    connectionSocket = serverSocket.accept();
+                    connectedToPeer = true;
+                }
+                else if(serverSocket == null && connectionSocket == null) {
+                    //both are null when the connection is no longer active
+                    break;
+                }
+
+                //3 minute timeout
+                connectionSocket.setSoTimeout(60 * 300);
+
+                InputStream fromPeer = connectionSocket.getInputStream();
+                OutputStream toPeer = connectionSocket.getOutputStream();
+
+                downloadConnection = new PeerDownloadConnection(toPeer);
+                uploadConnection = new PeerUploadConnection(toPeer);
+
+                downloadConnection.start();
+                uploadConnection.start();
+
+                byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
+                toPeer.write(handshakeMessage);
+                //new code added by me
+                byte[] bitfield = new String(fileManager.bitfield).getBytes();
+                //turns '0' -> 0 (int), '1' -> 1 (int)
+                for(int i = 0; i < bitfield.length; i++) {
+                    bitfield[i] -= 48;
+                }
+                byte[] bitfieldMessage = SharedFunctions.createMessage(5+bitfield.length,(byte)5,bitfield);
+                toPeer.write(bitfieldMessage);
+
+
+                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+6, connectionSocket.getInetAddress().toString());
+                ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
+                ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
+                if (!SharedFunctions.verifyInfoHash(handshakeMessage, messageFromPeer)) {
+                    closeConnection();
+                    continue;
+                }
+
+
+                int messageLength = -1;
+                while(connectedToPeer) {
+                    try {
+                        sleep(200);
+
+                        //if length not defined, read in the first 4 bytes from the input stream; if we don't have enough bytes yet, then try again later
+                        if(messageLength == -1) {
+                            byte[] lengthBytes = new byte[4];
+                            fromPeer.read(lengthBytes);
+                            messageLength = SharedFunctions.lengthOfMessage(lengthBytes);
+                        }
+                        //based on the length, get the rest of the message
+                        byte[] message = new byte[messageLength];
+                        fromPeer.read(message);
+                        //get the type of the message from its id
+                        String type = SharedFunctions.decodePartialMessage(message);
+
+                        //if the id is keep-alive, then skip this message since the socket's 3 minute timeout has already been reset
+                        if(type.equals("keep-alive")) {
+                            continue;
+                        }
+
+                        switch(type) {
+                            //if the id belongs to download (choke, unchoke, piece, have) then insert it into downloadConnection.incomingMessageQueue
+                            case "choke":
+                            case "unchoke":
+                            case "piece":
+                            case "have":
+                                downloadConnection.enqueueMessage(message);
+                                break;
+                            //if the id belongs to upload (interested, uninterested, request) then insert it into uploadConnection.incomingMessageQueue
+                            case "interested":
+                            case "not interested":
+                            case "request":
+                                uploadConnection.enqueueMessage(message);
+                                break;
+                            //skip it because this message's type is invalid
+                            default:
+                                break;
+                        }
+                    } catch (SocketTimeoutException e) {
+                        System.out.println("Socket to peer " + connectionSocket.getInetAddress().toString() + " timed out.");
+                        connectedToPeer = false;
+                        if(serverSocket == null) {
+                            active = false;
+                            allConnections.remove(this);
+                        }
+                    }
+                }
+            }
+        }
+        catch(Exception e) {
+            e.printStackTrace(); //To change body of catch statement use File | Settings | File Templates.
+        }
+        finally {
+            downloadConnection.running = false;
+            uploadConnection.running = false;
+            try {
+                downloadConnection.join();
+                uploadConnection.join();
+                connectionSocket.close();
+            } catch (InterruptedException | IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+            connectionSocket = null;
         }
 
-        return null;
 
     }
-    
+
+
     /**
-     * Private helper method that obtains possible indexes for the pieces.
+     * Private helper method that separates a data that contains two different information.
      *
-     * @param numberOfPieces
-     * @return indexes
+     * @param attachedMessage The data to be separated
+     * @param message1Length  Used for obtaining message2Length:
+     *                        message2Length=attachedMessage.length-message1Length
      */
-    private static ArrayList<Integer> getIndexes(int numberOfPieces, int offset) {
+    private static ArrayList<byte[]> detachMessage(byte[] attachedMessage, int message1Length) {
 
-        ArrayList<Integer> indexes = new ArrayList<Integer>(numberOfPieces);
-        int maxIndex = numberOfPieces + offset;
+        byte[] message1 = new byte[message1Length];
+        int message2Length = attachedMessage.length - message1Length;
+        byte[] message2 = new byte[message2Length];
+        ArrayList<byte[]> detachedData = new ArrayList<byte[]>(2);
 
-        for (int i = offset; i < maxIndex; i++)
-            indexes.add(i);
+        //copies header data into message byte[]
+        System.arraycopy(attachedMessage, 0, message1, 0, message1Length);
+        detachedData.add(message1);
+        //copies piece data into piece byte[]
+        System.arraycopy(attachedMessage, message1Length, message2, 0, message2Length);
+        detachedData.add(message2);
 
-        return indexes;
+        return detachedData;
 
     }
+
+    private static ArrayList<Integer> getIndexes(byte[] bitfieldMessage, int numberOfPieces) throws IOException {
+
+        if(SharedFunctions.decodeMessage(bitfieldMessage).equals("bitfield")) {
+            ArrayList<Integer> indexes = new ArrayList<Integer>(numberOfPieces);
+            String bitfield = Integer.toBinaryString(bitfieldMessage[5] & 0xFF);
+            for(int i = 0; i < numberOfPieces; i++) {
+                if(bitfield.charAt(i) == '1')
+                    indexes.add(i);
+            }
+            return indexes;
+        }
+        else
+            throw new IOException("Invalid bitfield message!");
+
+    }
+
+    private boolean validateHandshake(byte[] handshakeMessageReceived) {
+        if(handshakeMessageReceived.length == 68) {
+            byte[] protocolMessage = new byte[19];
+            System.arraycopy(handshakeMessageReceived,1,protocolMessage,0,19);
+            byte[] sha1Hash = new byte[20];
+            System.arraycopy(handshakeMessageReceived,28,sha1Hash,0,20);
+            /*
+            byte[] peerID = new byte[20];
+            System.arraycopy(handshakeMessageReceived,48,sha1Hash,0,20);
+            */
+            return handshakeMessageReceived[0] == 19 && Arrays.equals(protocolMessage,"BitTorrent protocol".getBytes()) && Arrays.equals(sha1Hash,torrentFile.getInfoHashBytes());
+        }
+        return false;
+    }
+
+    private boolean validateBitfield(byte[] bitfieldMessageReceived) {
+        return SharedFunctions.decodePartialMessage(bitfieldMessageReceived).equals("bitfield");
+    }
+
+    private void closeConnection() throws IOException {
+        //connection was started from the server socket; close the connection
+        connectionSocket.close();
+        connectionSocket = null;
+        if(serverSocket != null) {
+            //connection was provided by the server socket, so just close it so that we can re-accept
+            serverSocket.close();
+        }
+        else {
+            //connection was started from the socket, close the socket and remove this connection from the list of connections
+            allConnections.remove(this);
+        }
+    }
+
+    /**
+     * Gets the next partial (without a length field) message from the peer
+     * @param fromPeer The stream to read from
+     * @return next partial message
+     * @throws java.io.IOException if read failure
+     */
+    private byte[] getNextPartialMessage(InputStream fromPeer) throws IOException {
+        byte[] lengthBytes = new byte[4];
+        while(fromPeer.available() < lengthBytes.length) {
+            try {
+                sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+        fromPeer.read(lengthBytes);
+        int length = SharedFunctions.lengthOfMessage(lengthBytes);
+        byte[] message = new byte[length];
+        while(fromPeer.available() < message.length) {
+            try {
+                sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+        fromPeer.read(message);
+        return message;
+    }
+}
+
+class PeerDownloadConnection extends Thread {
+    OutputStream toPeer;
+    Queue<byte[]> incomingMessageQueue;
+
+    boolean choked;
+    boolean interested;
+
+    boolean running;
+
+    public PeerDownloadConnection(OutputStream toPeer) {
+        this.toPeer = toPeer;
+        incomingMessageQueue = new LinkedList<>();
+        choked = true;
+        interested = false;
+    }
+
+    public void run() {
+        running = true;
+        while(running) {
+
+        }
+
+    }
+
+    public synchronized void enqueueMessage(byte[] message) {
+        incomingMessageQueue.offer(message);
+    }
+}
+
+class PeerUploadConnection extends Thread {
+    OutputStream toPeer;
+    Queue<byte[]> incomingMessageQueue;
+
+    boolean choking;
+    boolean interested;
+
+    boolean running;
+
+    public PeerUploadConnection(OutputStream toPeer) {
+        this.toPeer = toPeer;
+        incomingMessageQueue = new PriorityQueue<byte[]>();
+        choking = true;
+        interested = false;
+    }
+
+    public void run() {
+        running = true;
+        while(running) {
+
+        }
+
+    }
+
+    public synchronized void enqueueMessage(byte[] message) {
+        incomingMessageQueue.offer(message);
+    }
+
 }

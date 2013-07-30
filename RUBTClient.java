@@ -1,12 +1,7 @@
-import java.awt.Dimension;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
-
-import javax.swing.AbstractAction;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JSplitPane;
 
 /**
  * RUBTClient is a simple BitTorrent client that parses a torrent file
@@ -18,19 +13,18 @@ import javax.swing.JSplitPane;
  */
 public class RUBTClient {
 	
-	private String fileName;
+	private String torrent, fileName;
 	private JFrame window = new JFrame();
 	private JPanel leftPanel = new JPanel();
 	private JPanel rightPanel = new JPanel();
 	private JButton start;
 	private JButton exit; 
-	private TorrentFile torrentFile;
-	private TrackerConnection trackerConnection;
 
 	/**
 	 * CONSTRUCTOR
 	 */
     public RUBTClient(String torrent, String fileName) {
+    	this.torrent = torrent;
     	this.fileName = fileName;
     	
     	window.getContentPane().removeAll();
@@ -52,8 +46,6 @@ public class RUBTClient {
         start.setVisible(true);
         exit.setVisible(true);
         window.setVisible(true);
-        
-        torrentFile = new TorrentFile(torrent);
     }
     
     @SuppressWarnings("serial")
@@ -63,15 +55,14 @@ public class RUBTClient {
             public void actionPerformed( ActionEvent e ) {
             	try {
                     byte[] peerID = Functions.generatePeerID();
-                    torrentFile.start();
-                    torrentFile.join();
-                    
-                    trackerConnection = new TrackerConnection(peerID);
-                    trackerConnection.start();
-                    trackerConnection.join();
-                    
-                    ArrayList<String> peers = trackerConnection.getPeers();
-                    PeerConnection.downloadFile(peers, torrentFile, peerID, fileName);
+                    TorrentFile torrentFile = readInTorrentFile(torrent);
+
+                    Object[] torrentInfo = parseTorrentFile(torrentFile);
+                    byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
+
+                    ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
+                    PeerConnectionManager peerConnectionManager = new PeerConnectionManager(6881, 6889, peers, torrentFile, peerID, fileName);
+                    peerConnectionManager.startDownloading();
                 } catch (Exception exception) {
                 	System.err.println("Could not save to " +fileName);
                 }
@@ -88,6 +79,48 @@ public class RUBTClient {
             	System.exit(0);
             }
         });
+    }
+    
+    /**
+     * This method returns a new TorrentFile class.
+     * 
+     * @param torrentFilename Name of torrent file
+     * @return TorrentFile
+     */
+    public static TorrentFile readInTorrentFile(String torrentFilename) {
+    	
+        return new TorrentFile(torrentFilename);
+        
+    }
+
+    /**
+     * This method returns an Object[] that contains a Map,
+     * which is filled with torrent information, and a ByteBuffer
+     * of the info hash.
+     * 
+     * @param torrentFile
+     * @return Object[] Holds torrent information
+     */
+    public static Object[] parseTorrentFile(TorrentFile torrentFile) {
+    	
+        return torrentFile.parseTorrent();
+        
+    }
+
+    /**
+     * This method contacts the tracker and obtains a response from
+     * the tracker.
+     * 
+     * @param torrentInfo Contains torrent information
+     * @param torrentFile
+     * @param peerID 
+     * @return byte[] Tracker response in bytes
+     */
+    public static byte[] contactTracker(Object[] torrentInfo, TorrentFile torrentFile, byte[] peerID) {
+    	
+        TrackerConnection trackerConnection = new TrackerConnection();
+        return trackerConnection.getTrackerResponse(torrentInfo, torrentFile, peerID);
+        
     }
 
     /**
