@@ -3,11 +3,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.URLConnection;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Created with IntelliJ IDEA.
@@ -19,23 +16,16 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public class PeerDownloadConnection extends Thread{
 	
     Socket connectionSocket;
-    //ConnectionState connectionState;
-    boolean active;
     String peerIPAddress;
     int port;
     byte[] peerID;
     FileManager fileManager;
-    TorrentFile torrentInfo;
 
-    public PeerDownloadConnection(String peerIPAddress, int port, TorrentFile torrentInfo, byte[] peerID, FileManager fileManager) throws IOException {
-        //this.connectionSocket = connectionSocket;
-        //connectionState = state;
+    public PeerDownloadConnection(String peerIPAddress, int port, byte[] peerID, FileManager fileManager) throws IOException {
         this.peerIPAddress = peerIPAddress;
         this.port = port;
         this.fileManager = fileManager;
-        this.torrentInfo = torrentInfo;
         this.peerID = peerID;
-        active = true;
     }
 
     
@@ -46,236 +36,56 @@ public class PeerDownloadConnection extends Thread{
 	        connectionSocket = new Socket(peerIPAddress, port);
 	        OutputStream toPeer = connectionSocket.getOutputStream();
 	        InputStream fromPeer = connectionSocket.getInputStream();
-	        byte[] message = createHandshake(torrentInfo.getInfoHashBytes(), peerID);
+	        byte[] message = SharedFunctions.createHandshake(TorrentFile.getInfoHashBytes(), peerID);
 	        toPeer.write(message);
-	        byte[] messageFromPeer = responseFromPeer(fromPeer, message.length+6);
+	        byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, message.length+6, peerIPAddress);
 	        ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
-	        ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentInfo.getNumberOfPieces());
-	
-	        if (verifyInfoHash(message, messageFromPeer)) {
-	        	
+	        ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), TorrentFile.getNumberOfPieces());
+	        if (SharedFunctions.verifyInfoHash(message, messageFromPeer)) {
 	        	System.out.println("Handshake verified from " + peerIPAddress);
 	            //creates an "interested" message
-	            message = createMessage(1, 2, -1, -1, -1, 5);
-	            int counter = -1;
-	
-	            do {
-	                toPeer.write(message);
-	                messageFromPeer = responseFromPeer(fromPeer, message.length);
-	                counter++;
-	                //stops when received message == "unchoke" or had tried more than 10 times
-	            } while (!decodeMessage(messageFromPeer).equals("unchoke") && counter < 10);
-	
-	            System.out.println("Connection unchoked from " + peerIPAddress);
-	
-	            if (counter == 10)
+	            message = SharedFunctions.createMessage(1, 2, -1, -1, -1, 5);
+	            toPeer.write(message);
+	            messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, message.length, peerIPAddress);
+	            if (!SharedFunctions.decodeMessage(messageFromPeer).equals("unchoke"))
 	                throw new IOException("Peer denied interested message!");
-	
+	            System.out.println("Connection unchoked from " + peerIPAddress);
 	            //Contacts tracker that downloading has started
-	            URLConnection trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, 0, torrentInfo.getFileSize(), "started").openConnection();
+	            URLConnection trackerCommunication = Functions.makeURL(TorrentFile.getAnnounce(), peerID, TorrentFile.getInfoHashBytes(), 0, 0, TorrentFile.getFileSize(), "started").openConnection();
 	            trackerCommunication.connect();
-	            
 	            int numberOfPieces = indexes.size();
 	            for (int i = 0; i < numberOfPieces; i++) {
-	
 	                //gets random index number
 	                int index = indexes.get(Functions.generateRandomInt(indexes.size() - 1));
 	                indexes.remove((Integer) index);
 	                if(fileManager.isDownloadable(index)) {
-	                	
 	                	int pieceLength;
 		                //if the piece at the end of the file
-		                if (index == torrentInfo.getNumberOfPieces() - 1)
+		                if (index == TorrentFile.getNumberOfPieces() - 1)
 		                    //Ex: 151709-32768*(5-1) = 20637 bytes = piece at end of file
-		                    pieceLength = torrentInfo.getFileSize() - torrentInfo.getPieceSize() * (torrentInfo.getNumberOfPieces() - 1);
+		                    pieceLength = TorrentFile.getFileSize() - TorrentFile.getPieceSize() * (TorrentFile.getNumberOfPieces() - 1);
 		                else
-		                    pieceLength = torrentInfo.getPieceSize();
-		
+		                    pieceLength = TorrentFile.getPieceSize();
 		                //creates a "request" message
-		                message = createMessage(13, 6, index, 0, pieceLength, 17);
-		                ArrayList<byte[]> pieceAndHeader = getPieceAndHeader(message, fromPeer, toPeer, pieceLength + 13, index, torrentInfo.getPieceHashes());
-		                fileManager.putPieceInFile(index, pieceAndHeader.get(1), torrentInfo.getPieceSize());
+		                message = SharedFunctions.createMessage(13, 6, index, 0, pieceLength, 17);
+		                ArrayList<byte[]> pieceAndHeader = getPieceAndHeader(message, fromPeer, toPeer, pieceLength + 13, index, TorrentFile.getPieceHashes());
+		                fileManager.putPieceInFile(index, pieceAndHeader.get(1), TorrentFile.getPieceSize());
 		                //creates a "have" message
-		                toPeer.write(createMessage(5, 4, index, -1, -1, 9));
+		                toPeer.write(SharedFunctions.createMessage(5, 4, index, -1, -1, 9));
 		                fileManager.insertIntoBitfield(index);
-		
 		                System.out.println("Piece " + Integer.toString(index + 1) + ": " +
 		                        Integer.toString(pieceLength) + " bytes downloaded from " + peerIPAddress);
-	                
 	                }//end if
 	            }//end for
-	
 	            //Contacts tracker that download has completed, Header length = 13 bytes
-	            trackerCommunication = Functions.makeURL(torrentInfo.getAnnounce(), peerID, torrentInfo.getInfoHashBytes(), 0, torrentInfo.getFileSize() + torrentInfo.getNumberOfPieces() * 13, 0, "completed").openConnection();
+	            trackerCommunication = Functions.makeURL(TorrentFile.getAnnounce(), peerID, TorrentFile.getInfoHashBytes(), 0, TorrentFile.getFileSize() + TorrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
 	            trackerCommunication.connect();
-	
 	        }//end if
 	        else
                 throw new IOException("Unknown info hash from peer's handshake!");
     	}catch (IOException e) {
             System.err.println(e.getMessage());
         }
-    }
-
-
-    /**
-     * Stops the thread of execution, although perhaps not immediately, and frees all resources
-     */
-    public void close() {
-        active = false;
-    }
-    
-    /**
-     * Private helper method that creates a handshake message for a peer.
-     *
-     * @param infoHashBytes
-     * @param peerID
-     * @return handshakeMessage
-     */
-    private static byte[] createHandshake(byte[] infoHashBytes, byte[] peerID) {
-
-        byte[] handshakeMessage = new byte[68];
-        handshakeMessage[0] = 19;
-
-        int offset = 1;
-
-        byte[] protocol = "BitTorrent protocol".getBytes();
-        System.arraycopy(protocol, 0, handshakeMessage, offset, protocol.length);
-        offset += protocol.length + 8;
-
-        System.arraycopy(infoHashBytes, 0, handshakeMessage, offset, infoHashBytes.length);
-        offset += infoHashBytes.length;
-
-        System.arraycopy(peerID, 0, handshakeMessage, offset, peerID.length);
-
-        return handshakeMessage;
-
-    }
-    
-    /**
-     * Private helper method that obtains the response data from a peer.
-     *
-     * @param fromPeer InputStream to get data from peer
-     * @param size     Length of expected data from peer
-     * @return messageFromPeer
-     * @throws IOException Failed to get message from peer
-     */
-    private byte[] responseFromPeer(InputStream fromPeer, int size) throws IOException {
-
-        int messageLength;
-        int offset = 0;
-        int counter = 0;
-
-        //stops when messageLength > size or messageLength == size or had tried 10 million times
-        while ((messageLength = fromPeer.available()) < size && counter < 10000000) {
-            offset = messageLength;
-            counter++;
-        }
-
-        if (counter == 10000000)
-            throw new IOException("\nCould not get any messages from peer: " + peerIPAddress);
-
-        byte[] messageFromPeer = new byte[messageLength];
-        fromPeer.read(messageFromPeer);
-
-        //deletes any unexpected bytes at the beginning of the data
-        if (messageLength > size) {
-            byte[] result = new byte[size];
-            System.arraycopy(messageFromPeer, offset, result, 0, size);
-            return result;
-        } else
-            return messageFromPeer;
-
-    }
-    
-    /**
-     * Private helper method that verifies if the info hash from the
-     * peer's handshake matches that of the created handshake.
-     *
-     * @param toPeer   Handshake given to peer
-     * @param fromPeer Handshake received from peer
-     * @return boolean true if verified, false if not
-     */
-    private static boolean verifyInfoHash(byte[] toPeer, byte[] fromPeer) {
-
-        //info hash is 20 bytes long
-        for (int i = 0; i < 20; i++) {
-            //info hash is offset by 28 bytes
-            if (toPeer[i + 28] != fromPeer[i + 28])
-                return false;
-        }
-
-        return true;
-
-    }
-    
-    /**
-     * Private helper method that creates a message for a peer.
-     *
-     * @param lengthPrefix Length of message in bytes excluding lengthPrefix
-     * @param id           Message identifier
-     * @param index        Piece index
-     * @param begin        Byte offset in piece
-     * @param length       Size of requested block
-     * @param byteSize     Size of expected message
-     * @return message 	   The created message in byte[] form
-     */
-    private static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize) {
-
-        byte[] message = new byte[byteSize];
-        int offset = 0;
-
-        if (lengthPrefix >= 0) {
-            byte[] temp = new byte[]{0, 0, 0, (byte) lengthPrefix};
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (id >= 0) {
-            message[offset] = (byte) id;
-            offset++;
-        }
-
-        if (index >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(index).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (begin >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(begin).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-            offset += 4;
-        }
-
-        if (length >= 0) {
-            byte[] temp = ByteBuffer.allocate(4).putInt(length).array();
-            System.arraycopy(temp, 0, message, offset, temp.length);
-        }
-
-        return message;
-
-    }
-    
-    /**
-     * Private helper method that decodes a byte[] message into
-     * a readable string.
-     *
-     * @param message The byte[] message to be decoded
-     * @return String The readable message
-     */
-    private static String decodeMessage(byte[] message) {
-
-        String[] messages = {"choke", "unchoke", "interested", "not interested", "have",
-                "bitfield", "request", "piece", "cancel"};
-
-        if (message.length < 4)
-            return null;
-        else if (message.length == 4)
-            return "keep-alive";
-        else
-            return messages[message[4]];
-
     }
     
     /**
@@ -299,12 +109,12 @@ public class PeerDownloadConnection extends Thread{
 
         do {
             toPeer.write(message);
-            response = responseFromPeer(fromPeer, size);
+            response = SharedFunctions.responseFromPeer(fromPeer, size, peerIPAddress);
             pieceAndHeader = detachMessage(response, 13);
             counter++;
             //stops when valid header and piece are obtained or had tried more than 10 times
         } while ((!verifyPieceHash(pieceAndHeader.get(1), index, pieceHashes) ||
-                !decodeMessage(pieceAndHeader.get(0)).equals("piece")) && counter < 10);
+                !( SharedFunctions.decodeMessage(pieceAndHeader.get(0)).equals("piece") )) && counter < 10);
 
         if (counter == 10)
             throw new IOException("\nFailed to obtain a valid piece or header.");
@@ -360,7 +170,7 @@ public class PeerDownloadConnection extends Thread{
     
     private static ArrayList<Integer> getIndexes(byte[] bitfieldMessage, int numberOfPieces) throws IOException {
     	
-    	if(decodeMessage(bitfieldMessage).equals("bitfield")) {
+    	if(SharedFunctions.decodeMessage(bitfieldMessage).equals("bitfield")) {
     		ArrayList<Integer> indexes = new ArrayList<Integer>(numberOfPieces);
     		String bitfield = Integer.toBinaryString(bitfieldMessage[5] & 0xFF);
     		for(int i = 0; i < numberOfPieces; i++) {

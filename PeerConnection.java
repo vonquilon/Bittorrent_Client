@@ -1,10 +1,5 @@
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.net.InetAddress;
-import java.net.Socket;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * This class connects to a peer, communicates with the peer,
@@ -15,10 +10,9 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * @version 1.0
  */
 public class PeerConnection{
-    //Socket connectionSocket; made in PeerDownloadConnectin.java
-    //PeerDownloadConnection fromPeer;
+    
     PeerUploadConnection toPeer;
-    //static ConnectionState state;
+    
 
 
     /**
@@ -27,39 +21,21 @@ public class PeerConnection{
      * @param port port that we're connecting to
      * @throws IOException if unable to connect
      */
-    public PeerConnection(/*String ipAddress, int port, byte[] file*/) throws IOException {
-        //connectionSocket = new Socket(ipAddress, port); made in PeerDownloadConnectin.java
-        //fromPeer = new PeerDownloadConnection(state, file);
-        /*toPeer = new PeerUploadConnection(connectionSocket, state, file);
-         *    should have a server socket, since it needs to listen
-         */
+    public PeerConnection() throws IOException {
+        
     }
     
-    public static void downloadFile(ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID, String fileName) throws IOException {
+    public static void downloadFile(ArrayList<String> peers, byte[] peerID, String fileName) throws IOException {
 
-    	FileManager fileManager = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
-    	//put upload here
+    	FileManager fileManager = new FileManager(TorrentFile.getFileSize(), TorrentFile.getNumberOfPieces(), fileName);
     	String[] peerIPAddresses = {"128.6.171.3", "128.6.171.4"};
     	int numberOfPeers = peerIPAddresses.length;
-    	//int numberOfPieces = torrentFile.getNumberOfPieces();
-    	//int piecesPerPeer = (int) Math.ceil((double) numberOfPieces/numberOfPeers);
-    	//boolean isLeftOver = false;
-    	//if(numberOfPieces % numberOfPeers > 0)
-    		//isLeftOver = true;
     	ArrayList<PeerDownloadConnection> downloads = new ArrayList<PeerDownloadConnection>(numberOfPeers);
-    	//int offset = 0;
     	for(int i = 0; i < numberOfPeers; i++) {
     		String[] selectedPeer = getAPeer(peers, peerIPAddresses[i]);
     		String IPaddress = selectedPeer[0];
             int port = Integer.parseInt(selectedPeer[1]);
-            /*ArrayList<Integer> indexes;
-            if(isLeftOver && i == numberOfPeers - 1)
-            	indexes = getIndexes(piecesPerPeer - 1, offset);
-            else {
-            	indexes = getIndexes(piecesPerPeer, offset);
-            	offset += piecesPerPeer;
-            }*/
-            downloads.add(new PeerDownloadConnection(IPaddress, port, torrentFile, peerID, fileManager));
+            downloads.add(new PeerDownloadConnection(IPaddress, port, peerID, fileManager));
     	}
     	
     	System.out.println("Download Process: ");
@@ -69,22 +45,10 @@ public class PeerConnection{
 			try {
 				downloads.get(i).join();
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
     	}
     	System.out.println("\nSaved file as " + fileName);
-    	//return fileManager.getFile();
-    }
-
-    /**
-     * Closes the connection to this peer
-     */
-    public void close() throws InterruptedException {
-        //fromPeer.close();
-        toPeer.close();
-        //fromPeer.join();
-        toPeer.join();
     }
     
     /**
