@@ -1,5 +1,3 @@
-package development;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -34,6 +32,7 @@ class PeerConnection extends Thread {
         connectedToPeer = true;
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
+        this.myPeerID = myPeerID;
     }
     //initializes this connecton as a server socket waiting for a peer to connect to it
     public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
@@ -42,6 +41,7 @@ class PeerConnection extends Thread {
         connectedToPeer = false;
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
+        this.myPeerID = myPeerID;
     }
 
 
@@ -68,8 +68,8 @@ class PeerConnection extends Thread {
                 downloadConnection = new PeerDownloadConnection(toPeer);
                 uploadConnection = new PeerUploadConnection(toPeer);
 
-                downloadConnection.run();
-                uploadConnection.run();
+                downloadConnection.start();
+                uploadConnection.start();
 
                 //send handshake to peer
                 byte[] handshakeMessageToSend = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
@@ -173,7 +173,7 @@ class PeerConnection extends Thread {
      * Gets the next partial (without a length field) message from the peer
      * @param fromPeer The stream to read from
      * @return next partial message
-     * @throws IOException if read failure
+     * @throws java.io.IOException if read failure
      */
     private byte[] getNextPartialMessage(InputStream fromPeer) throws IOException {
         byte[] lengthBytes = new byte[4];

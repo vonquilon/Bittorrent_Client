@@ -1,5 +1,3 @@
-package development;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -37,13 +35,17 @@ public class PeerConnectionManager {
         this.lowServerSocketPortRange = lowServerSocketPortRange;
         this.highServerSocketPortRange = highServerSocketPortRange;
         this.peerID = peerID;
+        this.torrentFile = torrentFile;
         file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
     }
 
     public void startDownloading() {
         for(int i = lowServerSocketPortRange; i <= highServerSocketPortRange; i++) {
             try {
-                activeConnections.add(new PeerConnection(new ServerSocket(i),activeConnections,torrentFile, peerID, file));
+                PeerConnection peerConnection = new PeerConnection(new ServerSocket(i), activeConnections, torrentFile, peerID, file);
+                activeConnections.add(peerConnection);
+                System.out.println("Server socket created on port " + i + ".");
+                peerConnection.start();
             } catch (IOException e) {
                 System.out.println("Warning: unable to create server socket on port " + i + '.');
             }
@@ -53,7 +55,10 @@ public class PeerConnectionManager {
             assert splitted.length == 2;
             if(splitted[0].equals("128.6.171.3") || splitted[0].equals("128.6.171.4")) {
                 try {
-                    activeConnections.add(new PeerConnection(new Socket(splitted[0],Integer.parseInt(splitted[1])), activeConnections,torrentFile, peerID, file));
+                    PeerConnection peerConnection = new PeerConnection(new Socket(splitted[0], Integer.parseInt(splitted[1])), activeConnections, torrentFile, peerID, file);
+                    activeConnections.add(peerConnection);
+                    System.out.println("Connected to peer at " + peer + ".");
+                    peerConnection.start();
                 } catch (IOException e) {
                     System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
                 }
