@@ -87,8 +87,7 @@ class PeerConnection extends Thread {
                 toPeer.write(bitfieldMessage);
 
 
-                //byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+6, connectionSocket.getInetAddress().toString());
-                byte[] messageFromPeer = SharedFunctions.nextPeerMessage(connectionSocket);
+                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+5+bitfield.length, connectionSocket.getInetAddress().toString());
 
                 ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
                 ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
@@ -321,11 +320,6 @@ class PeerUploadConnection extends Thread {
         running = true;
         while(running) {
             try {
-                wait(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-            }
-            try {
                 if(!incomingMessageQueue.isEmpty()) {
                     byte[] message = incomingMessageQueue.poll();
                     String type = SharedFunctions.decodeMessage(message);
@@ -362,5 +356,4 @@ class PeerUploadConnection extends Thread {
     public synchronized void enqueueMessage(byte[] message) {
         incomingMessageQueue.offer(message);
     }
-
 }

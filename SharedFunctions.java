@@ -298,7 +298,6 @@ public class SharedFunctions {
         Calendar cal = Calendar.getInstance();
         long currentTime = cal.getTimeInMillis();
         while(is.available() < 4) {
-            SharedFunctions.class.wait(100);
             if(cal.getTimeInMillis()-currentTime > timeout) {
                 throw new SocketTimeoutException();
             }
@@ -306,7 +305,6 @@ public class SharedFunctions {
         is.read(lengthBytes);
         int length = lengthOfMessage(lengthBytes);
         while(is.available() < length) {
-            SharedFunctions.class.wait(100);
             if(cal.getTimeInMillis()-currentTime > timeout) {
                 throw new SocketTimeoutException();
             }
