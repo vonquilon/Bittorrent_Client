@@ -78,16 +78,12 @@ class PeerConnection extends Thread {
                 byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
                 toPeer.write(handshakeMessage);
                 //new code added by me
-                byte[] bitfield = new String(fileManager.bitfield).getBytes();
-                //turns '0' -> 0 (int), '1' -> 1 (int)
-                for(int i = 0; i < bitfield.length; i++) {
-                    bitfield[i] -= 48;
-                }
-                byte[] bitfieldMessage = SharedFunctions.createMessage(5+bitfield.length,(byte)5,bitfield);
+                byte[] bitfieldMessage = new byte[1];
+                bitfieldMessage[0] = fileManager.getBitfield();
                 toPeer.write(bitfieldMessage);
 
 
-                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+5+bitfield.length, connectionSocket.getInetAddress().toString());
+                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+5+bitfieldMessage.length, connectionSocket.getInetAddress().toString());
 
                 ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
                 ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
