@@ -49,6 +49,27 @@ public class FileManager{
 	}
 
     /**
+     * Returns the number of bytes left to download
+     * @param torrentFile the parsed torrent file
+     * @return the number of bytes left
+     * @throws IOException
+     */
+    public synchronized int getBytesLeft(TorrentFile torrentFile) throws IOException {
+        long length = file.length();
+        for(int i = 0; i < torrentFile.getNumberOfPieces() && i < bitfield.length; i++) {
+            if(bitfield[i] == '1') {
+                if(i == torrentFile.getNumberOfPieces()-1) {
+                    length -= (length - torrentFile.getPieceSize()*torrentFile.getNumberOfPieces());
+                }
+                else {
+                    length -= torrentFile.getPieceSize();
+                }
+            }
+        }
+        return (int)length;
+    }
+
+    /**
      * sees whether a piece can be downloaded or not
      * @param index index of the piece
      * @return whether this piece is not in the progress of downloading or has been downloaded
@@ -93,7 +114,7 @@ public class FileManager{
     public synchronized byte[] getPieceFromFile(int index, int begin, int pieceSize, int length) throws IOException {
         byte[] piece = new byte[length];
         file.seek(pieceSize*index);
-        file.read(piece,begin,length);
+        file.read(piece, begin, length);
         return piece;
     }
 
