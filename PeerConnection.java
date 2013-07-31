@@ -374,6 +374,11 @@ class PeerDownloadConnection extends Thread {
     boolean running;
     byte[] mypeerID;
     ArrayList<Integer> indexes;
+    static int downloadedBytes = 0;
+
+    static int getDownloadedBytes() {
+        return downloadedBytes;
+    }
 
     /**
      * Constructor for this class
@@ -418,7 +423,7 @@ class PeerDownloadConnection extends Thread {
             System.out.println("Connection unchoked from " + peerIP + ".");
 
             //Contacts tracker that downloading has started
-            URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, file.getBytesLeft(torrentFile), "started").openConnection();
+            URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), PeerUploadConnection.uploadedBytes, downloadedBytes, file.getBytesLeft(torrentFile), "started").openConnection();
             trackerCommunication.connect();
             while (running) {
                 //gets random index number
@@ -466,13 +471,14 @@ class PeerDownloadConnection extends Thread {
 
                     System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
+                    downloadedBytes += receivedBlockBytes.length;
                     file.putPieceInFile(index, receivedBlockBytes, torrentFile.getPieceSize());
                     //creates a "have" message
                     toPeer.write(SharedFunctions.createMessage(5, 4, index, -1, -1, 9));
                     file.insertIntoBitfield(index);
                     file.completedDownloading(index);
                     //Contacts tracker that download has completed, Header length = 13 bytes
-                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, file.getBytesLeft(torrentFile), "completed").openConnection();
+                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), PeerUploadConnection.uploadedBytes, downloadedBytes, file.getBytesLeft(torrentFile), "completed").openConnection();
                     trackerCommunication.connect();
                 }//end if
             }
@@ -568,6 +574,12 @@ class PeerUploadConnection extends Thread {
     boolean running;
     String peerIP;
 
+    static int getUploadedBytes() {
+        return uploadedBytes;
+    }
+
+    static int uploadedBytes = 0;
+
     /**
      * initializes this connection to a specfic peer
      * @param toPeer our output stream to the peer
@@ -638,13 +650,14 @@ class PeerUploadConnection extends Thread {
                                 payloadToPeer = SharedFunctions.concat(payloadToPeer, data);
                                 byte[] pieceMessage = SharedFunctions.createMessage(9 + length, (byte) 7, payloadToPeer);
 
+                                uploadedBytes += pieceMessage.length;
                                 toPeer.write(pieceMessage);
                                 System.out.println(" and sent starting at piece " + index + ".");
 
 
                                 //Contacts tracker that upload has completed
                                 URLConnection trackerCommunication;
-                                trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), torrentFile.getPieceSize(),0, file.getBytesLeft(torrentFile), "completed").openConnection();
+                                trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), uploadedBytes,PeerDownloadConnection.getDownloadedBytes(), file.getBytesLeft(torrentFile), "completed").openConnection();
                                 trackerCommunication.connect();
                             }
                             System.out.println(" but did not send any data.");

@@ -93,13 +93,13 @@ public class PeerConnectionManager extends Thread{
         }
         running = true;
         boolean closedAllDownloadConnectionsYet = false;
-        long interval = 180*60*1000;
+        long interval = 60000;
         long initTime = System.currentTimeMillis();
         while(running){
             if(System.currentTimeMillis()-initTime > interval/4) {
                 try {
                     URLConnection trackerCommunication = null;
-                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "empty").openConnection();
+                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), PeerUploadConnection.uploadedBytes, PeerDownloadConnection.downloadedBytes, torrentFile.getFileSize(), "empty").openConnection();
                     trackerCommunication.connect();
                 }catch(IOException e) {
                     System.out.println("Warning: Unable to contact tracker.");
