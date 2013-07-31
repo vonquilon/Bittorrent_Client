@@ -63,7 +63,7 @@ class PeerConnection extends Thread {
     }
 
     /**
-     * Starts this connection
+     * Starts this connection and downloads/uploads from the peer.
      */
     public void run() {
         try {
@@ -197,7 +197,9 @@ class PeerConnection extends Thread {
         }
     }
 
-
+    /**
+     * Sets boolean variables to close all of the sockets and our connections.
+     */
     public synchronized void close() {
         active = false;
         connectedToPeer = false;
@@ -243,6 +245,13 @@ class PeerConnection extends Thread {
 
     }
 
+    /**
+     * Get the indexes of the bitfield message
+     * @param bitfieldMessage the bitfield message sent from the peer
+     * @param numberOfPieces the number of pieces (bits in bitfield)
+     * @return the indexes of the bitfield message as an array of indexes where bitfield[index] == 1
+     * @throws IOException
+     */
     private static ArrayList<Integer> getIndexes(byte[] bitfieldMessage, int numberOfPieces) throws IOException {
 
         if (SharedFunctions.decodeMessage(bitfieldMessage).equals("bitfield")) {
@@ -258,6 +267,11 @@ class PeerConnection extends Thread {
 
     }
 
+    /**
+     * Validate the peer's handshake
+     * @param handshakeMessageReceived the handshake we got from the peer
+     * @return true if valid, false if not
+     */
     private boolean validateHandshake(byte[] handshakeMessageReceived) {
         if (handshakeMessageReceived.length == 68) {
             byte[] protocolMessage = new byte[19];
@@ -277,6 +291,11 @@ class PeerConnection extends Thread {
         return SharedFunctions.decodePartialMessage(bitfieldMessageReceived).equals("bitfield");
     }
 
+
+    /**
+     * Close all connections
+     * @throws IOException if unable to close
+     */
     private void closeConnection() throws IOException {
         //connection was started from the server socket; close the connection
         connectionSocket.close();
@@ -320,6 +339,10 @@ class PeerConnection extends Thread {
         return message;
     }
 
+    /**
+     * Get the IP address of the connection socket
+     * @return the IP address of the connection socket
+     */
     public String getIPAddress() {
         if(connectionSocket == null) {
             return null;
@@ -328,6 +351,9 @@ class PeerConnection extends Thread {
     }
 }
 
+/**
+ * A class running on a thread as part of the PeerConnection's implementation in downloading pieces from a peer.
+ */
 class PeerDownloadConnection extends Thread {
     TorrentFile torrentFile;
     FileManager file;
@@ -342,6 +368,14 @@ class PeerDownloadConnection extends Thread {
     byte[] mypeerID;
     ArrayList<Integer> indexes;
 
+    /**
+     * Constructor for this class
+     * @param toPeer data stream to a peer
+     * @param file the downloaded file to write pieces to
+     * @param torrentFile the parsed torrent file
+     * @param peerIP the ip of the peer
+     * @param mypeerID our generated peer id
+     */
     public PeerDownloadConnection(OutputStream toPeer, FileManager file, TorrentFile torrentFile, String peerIP, byte[] mypeerID) {
         this.toPeer = toPeer;
         incomingMessageQueue = new LinkedList<>();
@@ -353,6 +387,10 @@ class PeerDownloadConnection extends Thread {
         this.mypeerID = mypeerID;
     }
 
+    /**
+     * starts downloading a file from a peer
+     */
+    @Override
     public void run() {
         running = true;
 
@@ -393,13 +431,6 @@ class PeerDownloadConnection extends Thread {
                         pieceLength = torrentFile.getPieceSize();
                     //creates a "request" message
                     int begin = 0;
-                    //byte[] indexBytes = SharedFunctions.intToByteArray(index);
-                    //byte[] beginBytes = SharedFunctions.intToByteArray(begin);
-                    //byte[] lengthBytes = SharedFunctions.intToByteArray(pieceLength);
-                    //byte[] request = SharedFunctions.concat(indexBytes,beginBytes);
-                    //request = SharedFunctions.concat(request,lengthBytes);
-                    //message = SharedFunctions.createMessage(13, (byte)6, request);
-                    //3rd -> index = 0
                     message = SharedFunctions.createMessage(13, 6, index, 0, pieceLength, 17);
                     toPeer.write(message);
                     file.startDownloading(index);
@@ -415,10 +446,6 @@ class PeerDownloadConnection extends Thread {
                         break;
                     };
                     ArrayList<byte[]> detached = detachMessage(piece, 13);
-                    //System.out.println("debug " + SharedFunctions.decodeMessage(piece));
-                    //if(!SharedFunctions.decodeMessage(piece).equals("piece")) {
-                    //    throw new IOException("Peer did not send requested piece!");
-                    //}
                     for(int i = 0; i < pieceLength; i++) {
 
                     }
@@ -431,16 +458,8 @@ class PeerDownloadConnection extends Thread {
 
                     System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
-                    //System.arraycopy(payload,5,receivedIndexBytes,0,4);
-                    //System.arraycopy(payload,9,receivedBeginBytes,0,4);
-                    //System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
-                    //if(SharedFunctions.byteArrayToInt(receivedIndexBytes) != index || SharedFunctions.byteArrayToInt(receivedBeginBytes) != begin) {
-                    //    throw new IOException("Peer's piece data was invalid!");
-                    //}
-
                     file.putPieceInFile(index, receivedBlockBytes, torrentFile.getPieceSize());
                     //creates a "have" message
-                    //toPeer.write(SharedFunctions.createMessage(5,(byte)4,SharedFunctions.intToByteArray(index)));
                     toPeer.write(SharedFunctions.createMessage(5, 4, index, -1, -1, 9));
                     file.insertIntoBitfield(index);
                     file.completedDownloading(index);
@@ -501,19 +520,33 @@ class PeerDownloadConnection extends Thread {
 
     }
 
+    /**
+     * puts a message into this connection's input
+     * @param message the message to enqueue into the input
+     */
     public synchronized void enqueueMessage(byte[] message) {
         incomingMessageQueue.offer(message);
     }
 
+    /**
+     * Setter for indexes
+     * @param indexes the indexes of the bitfield
+     */
     public void setIndexes(ArrayList<Integer> indexes) {
         this.indexes = indexes;
     }
 
+    /**
+     * sends a messsage to tell this connection to stop downloading
+     */
     public synchronized void stopDownloading() {
         running = false;
     }
 }
 
+/**
+ * A class running on a thread as part of the PeerConnection's implementation in uploading pieces to a peer.
+ */
 class PeerUploadConnection extends Thread {
     TorrentFile torrentFile;
     FileManager file;
@@ -526,6 +559,13 @@ class PeerUploadConnection extends Thread {
     boolean running;
     String peerIP;
 
+    /**
+     * initializes this connection to a specfic peer
+     * @param toPeer our output stream to the peer
+     * @param file the file to write pieces to
+     * @param torrentFile the parsed torrent file
+     * @param peerIP the peer's ip address
+     */
     public PeerUploadConnection(OutputStream toPeer, FileManager file, TorrentFile torrentFile, String peerIP) {
         this.toPeer = toPeer;
         incomingMessageQueue = new PriorityQueue<byte[]>();
@@ -536,6 +576,10 @@ class PeerUploadConnection extends Thread {
         this.peerIP = peerIP;
     }
 
+    /**
+     * Starts the upload thread.
+     */
+    @Override
     public void run() {
         running = true;
         long timeOfLastMessage = System.currentTimeMillis();
@@ -565,10 +609,14 @@ class PeerUploadConnection extends Thread {
                         case "request":
                             System.out.print("Got request message from " + peerIP);
                             if (interested && !choking) {
+                                //send piece to the peer from the request's parameters
                                 byte[] payloadFromPeer = SharedFunctions.payloadOfMessage(message);
                                 byte[] indexBytes = new byte[4];
                                 byte[] beginBytes = new byte[4];
                                 byte[] lengthBytes = new byte[4];
+                                System.arraycopy(payloadFromPeer,0,indexBytes,0,4);
+                                System.arraycopy(payloadFromPeer,0,beginBytes,4,4);
+                                System.arraycopy(payloadFromPeer,0,lengthBytes,8,4);
                                 int index = SharedFunctions.byteArrayToInt(indexBytes);
                                 int begin = SharedFunctions.byteArrayToInt(beginBytes);
                                 int length = SharedFunctions.byteArrayToInt(lengthBytes);
@@ -604,10 +652,17 @@ class PeerUploadConnection extends Thread {
 
     }
 
+    /**
+     * add a message to this upload connection's queue
+     * @param message the message to add
+     */
     public synchronized void enqueueMessage(byte[] message) {
         incomingMessageQueue.offer(message);
     }
 
+    /**
+     * tells this connection to stop uploading data and exit
+     */
     public synchronized void stopUploading() {
         running = false;
     }
