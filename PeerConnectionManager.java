@@ -144,7 +144,7 @@ public class PeerConnectionManager extends Thread{
         //Contacts tracker that downloading has stopped
         URLConnection trackerCommunication = null;
         try {
-            trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "stopped").openConnection();
+            trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), PeerUploadConnection.uploadedBytes, PeerDownloadConnection.downloadedBytes, torrentFile.getFileSize(), "stopped").openConnection();
             trackerCommunication.connect();
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
