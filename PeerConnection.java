@@ -7,6 +7,7 @@ import java.net.*;
 import java.util.*;
 
 class PeerConnection extends Thread {
+    String connectionSocketIP;
     FileManager fileManager;
 
     TorrentFile torrentFile;
@@ -14,6 +15,7 @@ class PeerConnection extends Thread {
 
     Socket connectionSocket = null;
     ServerSocket serverSocket = null;
+    int serverSocketPort;
 
     PeerDownloadConnection downloadConnection = null;
     PeerUploadConnection uploadConnection = null;
@@ -26,7 +28,14 @@ class PeerConnection extends Thread {
 
     char[] peerBitfield;
 
-    //initializes this connection as a socket already connected to a peer
+    /**
+     * Initializes this connection as a socket already connected to a peer
+     * @param socketToPeer socket connected to a peer
+     * @param allConnections list of all connections
+     * @param torrentFile the torrent file, read into memory and parsed
+     * @param myPeerID the generated peer ID that we go by
+     * @param fileManager the class that manages our downloaded file
+     */
     public PeerConnection(Socket socketToPeer, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         connectionSocket = socketToPeer;
         this.allConnections = allConnections;
@@ -53,21 +62,23 @@ class PeerConnection extends Thread {
             while (active) {
                 if (connectionSocket == null && serverSocket != null) {
                     connectionSocket = serverSocket.accept();
-                    System.out.println("Accepted connection on port " + serverSocket.getLocalPort() + " to peer " + connectionSocket.getInetAddress().toString() + ".");
+                    System.out.println("Accepted connection on port " + serverSocket.getLocalPort() + " to peer " + connectionSocketIP + ".");
                     connectedToPeer = true;
+                    serverSocketPort = serverSocket.getLocalPort();
                 } else if (serverSocket == null && connectionSocket == null) {
                     //both are null when the connection is no longer active
                     break;
                 }
 
+                connectionSocketIP = connectionSocket.getInetAddress().toString().substring(1);
                 //3 minute timeout
-                connectionSocket.setSoTimeout(60 * 300);
+                connectionSocket.setSoTimeout(60 * 3000);
 
                 InputStream fromPeer = connectionSocket.getInputStream();
                 OutputStream toPeer = connectionSocket.getOutputStream();
 
-                downloadConnection = new PeerDownloadConnection(toPeer, fileManager, torrentFile, connectionSocket.getInetAddress().toString(), myPeerID);
-                uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile, connectionSocket.getInetAddress().toString());
+                downloadConnection = new PeerDownloadConnection(toPeer, fileManager, torrentFile, connectionSocketIP, myPeerID);
+                uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile, connectionSocketIP);
 
 
                 byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
@@ -75,12 +86,12 @@ class PeerConnection extends Thread {
 
 
                 int bitfieldLength = (fileManager.bitfield.length + 7) / 8;
-                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length + 5 + bitfieldLength, connectionSocket.getInetAddress().toString());
+                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length + 5 + bitfieldLength, connectionSocketIP);
 
                 ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
                 ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
                 if (!SharedFunctions.verifyInfoHash(handshakeMessage, messageFromPeer)) {
-                    System.out.println("Connection to peer " + connectionSocket.getInetAddress().toString() + " invalidated. Connection lost.");
+                    System.out.println("Connection to peer " + connectionSocketIP + " invalidated. Connection lost.");
                     closeConnection();
                     continue;
                 }
@@ -92,7 +103,7 @@ class PeerConnection extends Thread {
                 //bitfieldMessage = SharedFunctions.createMessage(bitfieldLength+5,(byte)5, payload);
                 //toPeer.write(bitfieldMessage);
 
-                System.out.println("Validated connection to peer " + connectionSocket.getInetAddress().toString() + ".");
+                System.out.println("Validated connection to peer " + connectionSocketIP + ".");
                 int messageLength = -1;
 
                 downloadConnection.setIndexes(indexes);
@@ -138,7 +149,7 @@ class PeerConnection extends Thread {
                                 break;
                         }
                     } catch (SocketTimeoutException e) {
-                        System.out.println("Connection to peer " + connectionSocket.getInetAddress().toString() + " timed out.");
+                        System.out.println("Connection to peer " + connectionSocketIP + " timed out.");
                         connectedToPeer = false;
                         if (serverSocket == null) {
                             active = false;
@@ -148,11 +159,13 @@ class PeerConnection extends Thread {
             }
         }
         catch(SocketException e){
-            System.out.println("Server socket on port " + serverSocket.getLocalPort() + " closed.");
+            if(serverSocket != null) {
+                System.out.println("Server socket on port " + serverSocketPort + " closed.");
+            }
         }
         catch (IOException e) {
             if(e.toString().contains("Stream closed.")) {
-                System.out.println("Socket to peer " + connectionSocket.getInetAddress().toString() + " is closed.");
+                System.out.println("Socket to peer " + connectionSocketIP + " is closed.");
             }
             else {
                 e.printStackTrace();
@@ -308,7 +321,7 @@ class PeerConnection extends Thread {
         if(connectionSocket == null) {
             return null;
         }
-        return connectionSocket.getInetAddress().toString();
+        return connectionSocketIP;
     }
 }
 
@@ -363,7 +376,7 @@ class PeerDownloadConnection extends Thread {
                 //gets random index number
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
-                    System.out.println("Every piece is downloading or finished, so I'm cutting my connection with" + peerIP + ".");
+                    System.out.println("Every piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
                     break;
                 }
 
@@ -427,7 +440,7 @@ class PeerDownloadConnection extends Thread {
                 }//end if
             }
         } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            System.out.println("IO in downloading from peer "+ peerIP + " was interrupted.");
         }
 
     }
@@ -518,7 +531,7 @@ class PeerUploadConnection extends Thread {
                     }
                 }
             } catch (IOException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                System.out.println("IO in uploading to peer " + peerIP + " was interrupted.");
             }
 
         }

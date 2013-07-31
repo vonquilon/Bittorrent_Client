@@ -87,8 +87,12 @@ public class PeerConnectionManager extends Thread{
             }
         }
         running = true;
+        boolean closedAllYet = false;
         while(running){
             if(file.doneDownloading(torrentFile.getNumberOfPieces())) {
+                if(!closedAllYet) {
+                    closeAllConnections();
+                }
                 continue;
             }
             if(activeConnections.size() > 2) {
@@ -131,14 +135,20 @@ public class PeerConnectionManager extends Thread{
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
-        for (int i = 0; i < activeConnections.size(); i++) {
-            PeerConnection peerConnection = activeConnections.get(i);
-            peerConnection.close();
+        if(!closedAllYet) {
+            closeAllConnections();
         }
         while(activeConnections.size() > 0) {
 
         }
         ready = true;
+    }
+
+    private synchronized void closeAllConnections() {
+        for (int i = 0; i < activeConnections.size(); i++) {
+            PeerConnection peerConnection = activeConnections.get(i);
+            peerConnection.close();
+        }
     }
 
     public void stopDownloading() {
