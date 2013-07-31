@@ -63,4 +63,15 @@ public class FileManager {
     	file.write(piece);
 
     }
+
+    public synchronized byte[] getPieceFromFile(int index, int begin, int pieceSize, int length) throws IOException {
+        byte[] piece = new byte[length];
+        file.seek(pieceSize*index);
+        file.read(piece,begin,length);
+        return piece;
+    }
+
+    public synchronized void loadFile(String filename) {
+
+    }
 }

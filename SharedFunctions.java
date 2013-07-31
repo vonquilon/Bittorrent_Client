@@ -324,4 +324,11 @@ public class SharedFunctions {
 
         return concat(lengthBytes,messagePart);
     }
+
+    public static byte[] intToByteArray(int integer) {
+       ByteBuffer buffer = ByteBuffer.allocate(4);
+       buffer.order(ByteOrder.BIG_ENDIAN);
+       buffer.putInt(integer);
+       return buffer.array();
+    }
 }
