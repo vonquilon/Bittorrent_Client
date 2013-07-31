@@ -300,6 +300,7 @@ class PeerDownloadConnection extends Thread {
         while(running) {
 
             try {
+
                 //creates an "interested" message
                 //byte[] message = SharedFunctions.createMessage(1,(byte)2);
                 byte[] message = SharedFunctions.createMessage(1,2,-1,-1,-1,5);
@@ -318,61 +319,66 @@ class PeerDownloadConnection extends Thread {
                 URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "started").openConnection();
                 trackerCommunication.connect();
                 int numberOfPieces = indexes.size();
-                for (int i = 0; i < numberOfPieces; i++) {
-                    //gets random index number
-                    int index = indexes.get(Functions.generateRandomInt(indexes.size() - 1));
-                    indexes.remove((Integer) index);
-                    if(file.isDownloadable(index)) {
-                        int pieceLength;
-                        //if the piece at the end of the file
-                        if (index == torrentFile.getNumberOfPieces() - 1)
+                //gets random index number
+                int index = file.getRandomDownloadableIndex();
+                if(index == -1){
+                    System.out.println("No more pieces to download.");
+                    break;
+                }
+
+                if(file.isDownloadable(index)) {
+                    int pieceLength;
+                    //if the piece at the end of the file
+                    if (index == torrentFile.getNumberOfPieces() - 1)
                         //Ex: 151709-32768*(5-1) = 20637 bytes = piece at end of file
-                            pieceLength = torrentFile.getFileSize() - torrentFile.getPieceSize() * (torrentFile.getNumberOfPieces() - 1);
-                        else
-                            pieceLength = torrentFile.getPieceSize();
-                        //creates a "request" message
-                        int begin = 0;
-                        //byte[] indexBytes = SharedFunctions.intToByteArray(index);
-                        //byte[] beginBytes = SharedFunctions.intToByteArray(begin);
-                        //byte[] lengthBytes = SharedFunctions.intToByteArray(pieceLength);
-                        //byte[] request = SharedFunctions.concat(indexBytes,beginBytes);
-                        //request = SharedFunctions.concat(request,lengthBytes);
-                        //message = SharedFunctions.createMessage(13, (byte)6, request);
-                        message = SharedFunctions.createMessage(13, 6, index,0, pieceLength, 17);
-                        toPeer.write(message);
+                        pieceLength = torrentFile.getFileSize() - torrentFile.getPieceSize() * (torrentFile.getNumberOfPieces() - 1);
+                    else
+                        pieceLength = torrentFile.getPieceSize();
+                    //creates a "request" message
+                    int begin = 0;
+                    //byte[] indexBytes = SharedFunctions.intToByteArray(index);
+                    //byte[] beginBytes = SharedFunctions.intToByteArray(begin);
+                    //byte[] lengthBytes = SharedFunctions.intToByteArray(pieceLength);
+                    //byte[] request = SharedFunctions.concat(indexBytes,beginBytes);
+                    //request = SharedFunctions.concat(request,lengthBytes);
+                    //message = SharedFunctions.createMessage(13, (byte)6, request);
+                    //3rd -> index = 0
+                    message = SharedFunctions.createMessage(13, 6, 2,0, pieceLength, 17);
+                    toPeer.write(message);
+                    System.out.println("Sent a request message for piece " + index + ".");
 
-                        //read the "piece" message
-                        while(incomingMessageQueue.isEmpty()) {
+                    //read the "piece" message
+                    while(incomingMessageQueue.isEmpty()) {
 
-                        }
-                        byte[] piece = incomingMessageQueue.poll();
-                        byte[] payload = SharedFunctions.payloadOfMessage(piece);
-                        //System.out.println("debug " + SharedFunctions.decodeMessage(piece));
-                        //if(!SharedFunctions.decodeMessage(piece).equals("piece")) {
-                        //    throw new IOException("Peer did not send requested piece!");
-                        //}
-                        System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
+                    }
+                    byte[] piece = incomingMessageQueue.poll();
+                    byte[] payload = SharedFunctions.payloadOfMessage(piece);
+                    //System.out.println("debug " + SharedFunctions.decodeMessage(piece));
+                    //if(!SharedFunctions.decodeMessage(piece).equals("piece")) {
+                    //    throw new IOException("Peer did not send requested piece!");
+                    //}
+                    System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
-                        byte[] receivedIndexBytes = new byte[4];
-                        byte[] receivedBeginBytes = new byte[4];
-                        byte[] receivedBlockBytes = new byte[pieceLength];
-                        System.arraycopy(payload,5,receivedIndexBytes,0,4);
-                        System.arraycopy(payload,9,receivedBeginBytes,0,4);
-                        System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
-                        //if(SharedFunctions.byteArrayToInt(receivedIndexBytes) != index || SharedFunctions.byteArrayToInt(receivedBeginBytes) != begin) {
-                        //    throw new IOException("Peer's piece data was invalid!");
-                        //}
+                    byte[] receivedIndexBytes = new byte[4];
+                    byte[] receivedBeginBytes = new byte[4];
+                    byte[] receivedBlockBytes = new byte[pieceLength];
+                    System.arraycopy(payload,5,receivedIndexBytes,0,4);
+                    System.arraycopy(payload,9,receivedBeginBytes,0,4);
+                    System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
+                    //if(SharedFunctions.byteArrayToInt(receivedIndexBytes) != index || SharedFunctions.byteArrayToInt(receivedBeginBytes) != begin) {
+                    //    throw new IOException("Peer's piece data was invalid!");
+                    //}
 
-                        file.putPieceInFile(index, receivedBlockBytes, torrentFile.getPieceSize());
-                        //creates a "have" message
-                        //toPeer.write(SharedFunctions.createMessage(5,(byte)4,SharedFunctions.intToByteArray(index)));
-                        toPeer.write(SharedFunctions.createMessage(5,4, index, -1, -1, 9));
-                        file.insertIntoBitfield(index);
-                    }//end if
-                }//end for
-                //Contacts tracker that download has completed, Header length = 13 bytes
-                trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
-                trackerCommunication.connect();
+                    file.putPieceInFile(index, receivedBlockBytes, torrentFile.getPieceSize());
+                    //creates a "have" message
+                    //toPeer.write(SharedFunctions.createMessage(5,(byte)4,SharedFunctions.intToByteArray(index)));
+                    toPeer.write(SharedFunctions.createMessage(5,4, index, -1, -1, 9));
+                    file.insertIntoBitfield(index);
+                    //Contacts tracker that download has completed, Header length = 13 bytes
+                    //trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
+                    //trackerCommunication.connect();
+                }//end if
+
 
             }catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.

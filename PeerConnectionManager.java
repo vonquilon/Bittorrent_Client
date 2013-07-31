@@ -54,15 +54,27 @@ public class PeerConnectionManager {
             String[] splitted = peer.split(":");
             assert splitted.length == 2;
             if(splitted[0].equals("128.6.171.3") /*|| splitted[0].equals("128.6.171.4")*/) {
-                try {
-                    PeerConnection peerConnection = new PeerConnection(new Socket(splitted[0], Integer.parseInt(splitted[1])), activeConnections, torrentFile, peerID, file);
-                    activeConnections.add(peerConnection);
-                    System.out.println("Connected to peer at " + peer + ".");
-                    peerConnection.start();
-                } catch (IOException e) {
-                    System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
+                while(file.getBitfield() != 0b11111111){
+                    if(activeConnections.size() > 2) {
+                        continue;
+                    }
+                    try {
+                        PeerConnection peerConnection = new PeerConnection(new Socket(splitted[0], Integer.parseInt(splitted[1])), activeConnections, torrentFile, peerID, file);
+                        activeConnections.add(peerConnection);
+                        System.out.println("Connected to peer at " + peer + ".");
+                        peerConnection.start();
+                        System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
+
+                    } catch (IOException e) {
+                        System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
+                    }
                 }
             }
+        }
+        try {
+            file.close();
+        } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
     }
 }

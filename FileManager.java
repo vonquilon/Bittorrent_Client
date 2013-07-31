@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 public class FileManager {
 
-	RandomAccessFile file;
+    RandomAccessFile file;
 	ArrayList<Integer> downloading;
 	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
@@ -73,5 +73,22 @@ public class FileManager {
 
     public synchronized void loadFile(String filename) {
 
+    }
+
+    public synchronized int getRandomDownloadableIndex() {
+        ArrayList<Integer> allIndices = new ArrayList<>();
+        for(int i = 0; i < bitfield.length; i++) {
+            if(bitfield[i] == '0') {
+                allIndices.add(i);
+            }
+        }
+        if(allIndices.size() == 0) {
+            return -1;
+        }
+        return allIndices.get(Functions.generateRandomInt(allIndices.size() - 1));
+    }
+
+    public synchronized void close() throws IOException {
+        file.close();
     }
 }
