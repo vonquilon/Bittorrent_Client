@@ -133,13 +133,7 @@ public class PeerConnectionManager extends Thread{
         while(activeConnections.size() > 0) {
              //give all threads 3 seconds to shutdown
              if(System.currentTimeMillis()-time > 3000) {
-                for(int i = 0; i < activeConnections.size(); i++) {
-                    try {
-                        activeConnections.get(i).interrupt();
-                    } catch (IndexOutOfBoundsException e) {
-                        i--;
-                    }
-                }
+                 break;
              }
         }
         ready = true;
