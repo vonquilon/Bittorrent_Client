@@ -91,4 +91,14 @@ public class FileManager {
     public synchronized void close() throws IOException {
         file.close();
     }
+
+    public synchronized boolean doneDownloading() {
+        for (char aBitfield : bitfield) {
+            if (aBitfield == '0') {
+                return false;
+            }
+        }
+        return true;
+
+    }
 }

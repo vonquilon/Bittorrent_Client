@@ -114,7 +114,7 @@ class PeerConnection extends Thread {
                         for(int i = 0; i < 10 && i < message.length; i++) {
                             System.out.print(message[i]);
                         }
-                        System.out.println();
+                        System.out.println(" " + message.length);
 
                         //if the id is keep-alive, then skip this message since the socket's 3 minute timeout has already been reset
                         if (type.equals("keep-alive")) {
@@ -304,6 +304,7 @@ class PeerDownloadConnection extends Thread {
                 //creates an "interested" message
                 //byte[] message = SharedFunctions.createMessage(1,(byte)2);
                 byte[] message = SharedFunctions.createMessage(1,2,-1,-1,-1,5);
+
                 toPeer.write(message);
 
                 //wait to be unchoked
@@ -343,7 +344,7 @@ class PeerDownloadConnection extends Thread {
                     //request = SharedFunctions.concat(request,lengthBytes);
                     //message = SharedFunctions.createMessage(13, (byte)6, request);
                     //3rd -> index = 0
-                    message = SharedFunctions.createMessage(13, 6, 2,0, pieceLength, 17);
+                    message = SharedFunctions.createMessage(13, 6, index,0, pieceLength, 17);
                     toPeer.write(message);
                     System.out.println("Sent a request message for piece " + index + ".");
 
@@ -359,12 +360,12 @@ class PeerDownloadConnection extends Thread {
                     //}
                     System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
-                    byte[] receivedIndexBytes = new byte[4];
-                    byte[] receivedBeginBytes = new byte[4];
-                    byte[] receivedBlockBytes = new byte[pieceLength];
-                    System.arraycopy(payload,5,receivedIndexBytes,0,4);
-                    System.arraycopy(payload,9,receivedBeginBytes,0,4);
-                    System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
+                    byte[] receivedIndexBytes = java.util.Arrays.copyOfRange(payload,5,8);
+                    byte[] receivedBeginBytes = java.util.Arrays.copyOfRange(payload,9,12);
+                    byte[] receivedBlockBytes = java.util.Arrays.copyOfRange(payload,13,13+pieceLength-1);
+                    //System.arraycopy(payload,5,receivedIndexBytes,0,4);
+                    //System.arraycopy(payload,9,receivedBeginBytes,0,4);
+                    //System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
                     //if(SharedFunctions.byteArrayToInt(receivedIndexBytes) != index || SharedFunctions.byteArrayToInt(receivedBeginBytes) != begin) {
                     //    throw new IOException("Peer's piece data was invalid!");
                     //}

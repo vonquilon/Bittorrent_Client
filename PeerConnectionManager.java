@@ -50,25 +50,31 @@ public class PeerConnectionManager {
                 System.out.println("Warning: unable to create server socket on port " + i + '.');
             }
         }
+        ArrayList<String> validPeers = new ArrayList<>();
+        ArrayList<String> validPeerPorts = new ArrayList<>();
         for(String peer : peers) {
             String[] splitted = peer.split(":");
             assert splitted.length == 2;
             if(splitted[0].equals("128.6.171.3") /*|| splitted[0].equals("128.6.171.4")*/) {
-                while(file.getBitfield() != 0b11111111){
-                    if(activeConnections.size() > 2) {
-                        continue;
-                    }
-                    try {
-                        PeerConnection peerConnection = new PeerConnection(new Socket(splitted[0], Integer.parseInt(splitted[1])), activeConnections, torrentFile, peerID, file);
-                        activeConnections.add(peerConnection);
-                        System.out.println("Connected to peer at " + peer + ".");
-                        peerConnection.start();
-                        System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
+                validPeers.add(splitted[0]);
+                validPeerPorts.add(splitted[1]);
 
-                    } catch (IOException e) {
-                        System.out.println("Warning: unable to connect to host " + splitted[0] + " on port " + splitted[1] + ".");
-                    }
-                }
+            }
+        }
+        while(!file.doneDownloading()){
+            if(activeConnections.size() > 1) {
+                continue;
+            }
+            int peerNumber = Functions.generateRandomInt(validPeerPorts.size()-1);
+            try {
+                //since there are 1 or fewer connections (only 2 connections allowed at a time) try connecting to a peer
+                PeerConnection peerConnection = new PeerConnection(new Socket(validPeers.get(peerNumber), Integer.parseInt(validPeerPorts.get(peerNumber))), activeConnections, torrentFile, peerID, file);
+                activeConnections.add(peerConnection);
+                System.out.println("Connected to peer at " + validPeers.get(peerNumber) + ".");
+                peerConnection.start();
+
+            } catch (IOException e) {
+                System.out.println("Warning: unable to connect to host " + validPeers.get(peerNumber) + " on port " + validPeerPorts.get(peerNumber) + ".");
             }
         }
         try {

@@ -133,8 +133,13 @@ public class SharedFunctions {
      * @return a byte[] that is the concatenation of the two
      */
     public static byte[] concat(byte[] b1, byte[] b2) {
-        byte[] totalMessage = Arrays.copyOf(b2, b2.length + b1.length);
-        System.arraycopy(b1, 0, totalMessage, b2.length, b1.length);
+        byte[] totalMessage = new byte[b1.length+b2.length];
+        for(int i = 0; i < b1.length; i++) {
+            totalMessage[i] = b1[i];
+        }
+        for(int i = 0; i < b2.length; i++) {
+            totalMessage[i+b1.length] = b2[i];
+        }
         return totalMessage;
     }
 
