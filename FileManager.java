@@ -1,10 +1,7 @@
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.util.ArrayList;
 
-public class FileManager {
+public class FileManager implements Serializable {
 
     RandomAccessFile file;
 	ArrayList<Integer> downloading;

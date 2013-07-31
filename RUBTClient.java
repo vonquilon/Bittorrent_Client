@@ -15,12 +15,14 @@ public class RUBTClient {
 	
 	private String torrent, fileName;
 	private JFrame window = new JFrame();
-	private JPanel leftPanel = new JPanel();
+    private JPanel leftPanel = new JPanel();
 	private JPanel rightPanel = new JPanel();
 	private JButton start;
-	private JButton exit; 
+	private JButton exit;
+    private static boolean exitProgram;
+    private static PeerConnectionManager peerConnectionManager;
 
-	/**
+    /**
 	 * CONSTRUCTOR
 	 */
     public RUBTClient(String torrent, String fileName) {
@@ -61,7 +63,7 @@ public class RUBTClient {
                     byte[] trackerResponse = contactTracker(torrentInfo, torrentFile, peerID);
 
                     ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
-                    PeerConnectionManager peerConnectionManager = new PeerConnectionManager(9593,9593, peers, torrentFile, peerID, fileName);
+                    peerConnectionManager = new PeerConnectionManager(9593,9593, peers, torrentFile, peerID, fileName);
                     peerConnectionManager.startDownloading();
                 } catch (Exception exception) {
                 	System.err.println("Could not save to " +fileName);
@@ -76,7 +78,7 @@ public class RUBTClient {
             @Override
             public void actionPerformed( ActionEvent e ) {
             	window.dispose();
-            	System.exit(0);
+                exitProgram = true;
             }
         });
     }
@@ -133,6 +135,12 @@ public class RUBTClient {
     public static void main(String args[]) {
     	RUBTClient rubtClient = new RUBTClient(args[0], args[1]);
         
-        
+        while(!exitProgram) {
+            //wait
+        }
+        if(peerConnectionManager != null) {
+            peerConnectionManager.stop();
+        }
+        System.exit(0);
     }
 }

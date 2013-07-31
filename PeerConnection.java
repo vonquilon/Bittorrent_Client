@@ -144,7 +144,6 @@ class PeerConnection extends Thread {
                         connectedToPeer = false;
                         if (serverSocket == null) {
                             active = false;
-                            allConnections.remove(this);
                         }
                     }
                 }
@@ -152,12 +151,15 @@ class PeerConnection extends Thread {
         } catch (Exception e) {
             e.printStackTrace(); //To change body of catch statement use File | Settings | File Templates.
         } finally {
+            allConnections.remove(this);
             downloadConnection.running = false;
             uploadConnection.running = false;
             try {
                 downloadConnection.join();
                 uploadConnection.join();
-                connectionSocket.close();
+                if(!connectionSocket.isClosed()) {
+                    connectionSocket.close();
+                }
             } catch (InterruptedException | IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
@@ -165,6 +167,11 @@ class PeerConnection extends Thread {
         }
     }
 
+
+    public synchronized void close() {
+        active = false;
+        connectedToPeer = false;
+    }
 
     /**
      * Private helper method that separates a data that contains two different information.
@@ -346,7 +353,7 @@ class PeerDownloadConnection extends Thread {
                     //3rd -> index = 0
                     message = SharedFunctions.createMessage(13, 6, index,0, pieceLength, 17);
                     toPeer.write(message);
-                    System.out.println("Sent a request message for piece " + index + ".");
+                    System.out.println("Sent a request message for piece " + Integer.toString(index+1) + ".");
 
                     //read the "piece" message
                     while(incomingMessageQueue.isEmpty()) {
@@ -480,4 +487,5 @@ class PeerUploadConnection extends Thread {
     public synchronized void enqueueMessage(byte[] message) {
         incomingMessageQueue.offer(message);
     }
+
 }

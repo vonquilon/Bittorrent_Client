@@ -21,6 +21,8 @@ public class PeerConnectionManager {
 
     int lowServerSocketPortRange;
     int highServerSocketPortRange;
+    private boolean running;
+    private boolean ready;
 
     /**
      * Constructor for the manager, which handles all coordination of the connections
@@ -37,9 +39,11 @@ public class PeerConnectionManager {
         this.peerID = peerID;
         this.torrentFile = torrentFile;
         file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
+        ready = true;
     }
 
     public void startDownloading() {
+        ready = false;
         for(int i = lowServerSocketPortRange; i <= highServerSocketPortRange; i++) {
             try {
                 PeerConnection peerConnection = new PeerConnection(new ServerSocket(i), activeConnections, torrentFile, peerID, file);
@@ -61,7 +65,8 @@ public class PeerConnectionManager {
 
             }
         }
-        while(!file.doneDownloading()){
+        running = true;
+        while(!file.doneDownloading() && running){
             if(activeConnections.size() > 1) {
                 continue;
             }
@@ -82,5 +87,20 @@ public class PeerConnectionManager {
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
+        for(PeerConnection peerConnection : activeConnections) {
+            peerConnection.close();
+        }
+        while(activeConnections.size() > 0) {
+
+        }
+        ready = true;
+    }
+
+    public void stop() {
+        running = false;
+    }
+
+    public boolean readyToClose() {
+        return ready;
     }
 }
