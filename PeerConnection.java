@@ -88,7 +88,7 @@ class PeerConnection extends Thread {
 
                 connectionSocketIP = connectionSocket.getInetAddress().toString().substring(1);
                 //3 minute timeout
-                connectionSocket.setSoTimeout(60 * 3000);
+                connectionSocket.setSoTimeout(60 * 2000);
 
                 InputStream fromPeer = connectionSocket.getInputStream();
                 OutputStream toPeer = connectionSocket.getOutputStream();
@@ -420,8 +420,14 @@ class PeerDownloadConnection extends Thread {
             //Contacts tracker that downloading has started
             URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "started").openConnection();
             trackerCommunication.connect();
+            long lastUpdateTime = System.currentTimeMillis();
+            long interval = 5000;
             while (running) {
                 //gets random index number
+                if(System.currentTimeMillis()-lastUpdateTime > interval/2) {
+                    contactTracker();
+                }
+                
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
                     System.out.println("Selected piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
@@ -479,6 +485,11 @@ class PeerDownloadConnection extends Thread {
             System.out.println("IO in downloading from peer "+ peerIP + " was interrupted.");
         }
 
+    }
+
+    private void contactTracker() throws IOException {
+        URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "empty").openConnection();
+        trackerCommunication.connect();
     }
 
     /**

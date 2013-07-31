@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -91,14 +92,13 @@ public class PeerConnectionManager extends Thread{
             }
         }
         running = true;
-        boolean closedAllYet = false;
+        boolean closedAllDownloadConnectionsYet = false;
         while(running){
             if(file.isDoneDownloading(torrentFile.getNumberOfPieces())) {
-                if(!closedAllYet) {
+                if(!closedAllDownloadConnectionsYet) {
                     System.out.println("File completely downloaded, closing any download connections.");
-                    closeAllConnections();
-                    closedAllYet = true;
-                    running = false;
+                    closeAllDownloadConnections();
+                    closedAllDownloadConnectionsYet = true;
                 }
                 continue;
             }
@@ -129,15 +129,22 @@ public class PeerConnectionManager extends Thread{
                 }
             }
         }
+
+        //Contacts tracker that downloading has stopped
+        URLConnection trackerCommunication = null;
+        try {
+            trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "stopped").openConnection();
+            trackerCommunication.connect();
+        } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
         try {
             file.close();
             file.writeBitfield("bitfield.txt");
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
-        if(!closedAllYet) {
-            closeAllConnections();
-        }
+        closeAllConnections();
         long time = System.currentTimeMillis();
         while(activeConnections.size() > 0) {
              if(System.currentTimeMillis()-time > 1000) {
@@ -156,6 +163,23 @@ public class PeerConnectionManager extends Thread{
             try {
                 PeerConnection peerConnection = activeConnections.get(i);
                 peerConnection.close();
+            }
+            catch(IndexOutOfBoundsException e) {
+                //try the same connection again just in case; if it doesn't work this time, it'll break out
+                i--;
+            }
+        }
+    }
+    /**
+     * When called, closes all the download connections.
+     */
+    private synchronized void closeAllDownloadConnections() {
+        for (int i = 0; i < activeConnections.size(); i++) {
+            try {
+                if(activeConnections.get(i).serverSocket == null) {
+                    PeerConnection peerConnection = activeConnections.get(i);
+                    peerConnection.close();
+                }
             }
             catch(IndexOutOfBoundsException e) {
                 //try the same connection again just in case; if it doesn't work this time, it'll break out

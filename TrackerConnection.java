@@ -33,7 +33,7 @@ public class TrackerConnection {
      *
      * @param torrentInfo Object[] that holds torrent information
      * @param torrentFile the torrent file
-     * @param peerID
+     * @param peerID our generated peerID
      * @return response   Tracker response in a byte[]
      * @throws java.io.IOException Failed to get a response
      */
