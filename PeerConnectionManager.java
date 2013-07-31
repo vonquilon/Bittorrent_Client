@@ -53,7 +53,7 @@ public class PeerConnectionManager {
         for(String peer : peers) {
             String[] splitted = peer.split(":");
             assert splitted.length == 2;
-            if(splitted[0].equals("128.6.171.3") || splitted[0].equals("128.6.171.4")) {
+            if(splitted[0].equals("128.6.171.3") /*|| splitted[0].equals("128.6.171.4")*/) {
                 try {
                     PeerConnection peerConnection = new PeerConnection(new Socket(splitted[0], Integer.parseInt(splitted[1])), activeConnections, torrentFile, peerID, file);
                     activeConnections.add(peerConnection);
