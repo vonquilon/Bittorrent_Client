@@ -87,14 +87,14 @@ class PeerConnection extends Thread {
                 }
 
                 connectionSocketIP = connectionSocket.getInetAddress().toString().substring(1);
-                //3 minute timeout
+                //2 minute timeout
                 connectionSocket.setSoTimeout(60 * 2000);
 
                 InputStream fromPeer = connectionSocket.getInputStream();
                 OutputStream toPeer = connectionSocket.getOutputStream();
 
                 downloadConnection = new PeerDownloadConnection(toPeer, fileManager, torrentFile, connectionSocketIP, myPeerID);
-                uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile, connectionSocketIP);
+                uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile, connectionSocketIP, myPeerID);
 
 
                 byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
@@ -418,15 +418,10 @@ class PeerDownloadConnection extends Thread {
             System.out.println("Connection unchoked from " + peerIP + ".");
 
             //Contacts tracker that downloading has started
-            URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "started").openConnection();
+            URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, file.getBytesLeft(torrentFile), "started").openConnection();
             trackerCommunication.connect();
-            long lastUpdateTime = System.currentTimeMillis();
-            long interval = 5000;
             while (running) {
                 //gets random index number
-                if(System.currentTimeMillis()-lastUpdateTime > interval/2) {
-                    contactTracker();
-                }
                 
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
@@ -477,7 +472,7 @@ class PeerDownloadConnection extends Thread {
                     file.insertIntoBitfield(index);
                     file.completedDownloading(index);
                     //Contacts tracker that download has completed, Header length = 13 bytes
-                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
+                    trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, file.getBytesLeft(torrentFile), "completed").openConnection();
                     trackerCommunication.connect();
                 }//end if
             }
@@ -485,11 +480,6 @@ class PeerDownloadConnection extends Thread {
             System.out.println("IO in downloading from peer "+ peerIP + " was interrupted.");
         }
 
-    }
-
-    private void contactTracker() throws IOException {
-        URLConnection trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, 0, torrentFile.getFileSize(), "empty").openConnection();
-        trackerCommunication.connect();
     }
 
     /**
@@ -566,6 +556,7 @@ class PeerDownloadConnection extends Thread {
  * A class running on a thread as part of the PeerConnection's implementation in uploading pieces to a peer.
  */
 class PeerUploadConnection extends Thread {
+    private final byte[] peerID;
     TorrentFile torrentFile;
     FileManager file;
     OutputStream toPeer;
@@ -584,7 +575,7 @@ class PeerUploadConnection extends Thread {
      * @param torrentFile the parsed torrent file
      * @param peerIP the peer's ip address
      */
-    public PeerUploadConnection(OutputStream toPeer, FileManager file, TorrentFile torrentFile, String peerIP) {
+    public PeerUploadConnection(OutputStream toPeer, FileManager file, TorrentFile torrentFile, String peerIP, byte[] peerID) {
         this.toPeer = toPeer;
         incomingMessageQueue = new PriorityQueue<byte[]>();
         choking = true;
@@ -592,6 +583,7 @@ class PeerUploadConnection extends Thread {
         this.file = file;
         this.torrentFile = torrentFile;
         this.peerIP = peerIP;
+        this.peerID = peerID;
     }
 
     /**
@@ -648,6 +640,12 @@ class PeerUploadConnection extends Thread {
 
                                 toPeer.write(pieceMessage);
                                 System.out.println(" and sent starting at piece " + index + ".");
+
+
+                                //Contacts tracker that upload has completed
+                                URLConnection trackerCommunication;
+                                trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), peerID, torrentFile.getInfoHashBytes(), torrentFile.getPieceSize(),0, file.getBytesLeft(torrentFile), "completed").openConnection();
+                                trackerCommunication.connect();
                             }
                             System.out.println(" but did not send any data.");
                             break;
@@ -657,7 +655,7 @@ class PeerUploadConnection extends Thread {
                     }
                 }
                 else if(gotFirstMessage){
-                    if(System.currentTimeMillis() - timeOfLastMessage > 60*3000) {
+                    if(System.currentTimeMillis() - timeOfLastMessage > 60*2000) {
                         System.out.println("We went over our timeout period, so we're shutting off the connection to peer " + peerIP + ".");
                         break;
                     }
