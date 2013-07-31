@@ -163,7 +163,7 @@ class PeerConnection extends Thread {
         }
         catch(SocketException e){
             if(serverSocket != null) {
-                System.out.println("Server socket on port " + serverSocketPort + " closed.");
+                System.out.println("Server socket closed.");
             }
         }
         catch (IOException e) {
