@@ -1,10 +1,13 @@
 import java.io.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 
-public class FileManager implements Serializable {
+public class FileManager{
 
-    transient RandomAccessFile file;
-	transient ArrayList<Integer> downloading;
+    RandomAccessFile file;
+	ArrayList<Integer> downloading;
 	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
 	public FileManager(int size, int numberOfPieces, String fileName) throws IOException {
@@ -18,11 +21,6 @@ public class FileManager implements Serializable {
 		downloading = new ArrayList<Integer>(numberOfPieces);
 		
 	}
-
-    private void serialize(ObjectOutputStream stream) throws IOException {
-        stream.defaultWriteObject();
-        stream.writeLong(file.getFilePointer());
-    }
 
 	public synchronized void insertIntoBitfield(int index) {
 		
@@ -98,7 +96,12 @@ public class FileManager implements Serializable {
         file.close();
     }
 
-    public synchronized boolean doneDownloading(int numberOfPieces) {
+    /**
+     * Tells whether the file is completely done downloading or not
+     * @param numberOfPieces
+     * @return
+     */
+    public synchronized boolean isDoneDownloading(int numberOfPieces) {
         for (int i = 0; i < bitfield.length && i < numberOfPieces; i++) {
             char aBitfield = bitfield[i];
             if (aBitfield == '0') {
@@ -109,8 +112,35 @@ public class FileManager implements Serializable {
 
     }
 
-
+    /**
+     * Tell the file that you've completed downloading this particular piece
+     * @param index the index of the piece
+     */
     public synchronized void completedDownloading(Integer index) {
         downloading.remove(index);
+    }
+
+    public void loadBitfield(String filename) throws IOException {
+        InputStream inputStream = new FileInputStream(filename);
+        char[] newBitfield = new char[bitfield.length];
+        int size = inputStream.available();
+        for(int i = 0; i < size; i++) {
+            newBitfield[i] = (char)inputStream.read();
+        }
+        inputStream.close();
+        bitfield = newBitfield;
+    }
+
+    public void writeBitfield(String filename) throws IOException {
+        byte[] bytes = new byte[bitfield.length];
+        for(int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) bitfield[i];
+        }
+        OutputStream outputStream = new FileOutputStream(filename);
+        for(int i = 0; i < bytes.length; i++) {
+            outputStream.write(bytes[i]);
+        }
+        outputStream.close();
+
     }
 }

@@ -42,19 +42,14 @@ public class PeerConnectionManager extends Thread{
         this.torrentFile = torrentFile;
         ready = true;
         this.fileName = fileName;
-
-        try {
-            FileInputStream fIn = new FileInputStream(fileName+".ser");
-            ObjectInputStream in = new ObjectInputStream(fIn);
-            file = (FileManager) in.readObject();
-            in.close();
-            fIn.close();
-        } catch (FileNotFoundException | ClassNotFoundException e) {
-            System.out.println("No serialized file part found in this directory. Starting from a fresh download.");
-        } catch (IOException e) {
-            System.out.println("Unable to access file. Starting from a fresh download.");
-        }
         file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
+        try {
+            file.loadBitfield("bitfield.txt");
+            System.out.println("Successfully read bitfield from file.");
+        }
+        catch(IOException e) {
+            System.out.println("Unable to read bitfield from file, so starting fresh.");
+        }
     }
 
     @Override
@@ -89,9 +84,12 @@ public class PeerConnectionManager extends Thread{
         running = true;
         boolean closedAllYet = false;
         while(running){
-            if(file.doneDownloading(torrentFile.getNumberOfPieces())) {
+            if(file.isDoneDownloading(torrentFile.getNumberOfPieces())) {
                 if(!closedAllYet) {
+                    System.out.println("File completely downloaded, closing any download connections.");
                     closeAllConnections();
+                    closedAllYet = true;
+                    running = false;
                 }
                 continue;
             }
@@ -124,38 +122,47 @@ public class PeerConnectionManager extends Thread{
         }
         try {
             file.close();
-            if(!file.doneDownloading(torrentFile.getNumberOfPieces())) {
-                FileOutputStream fOut = new FileOutputStream(fileName + ".ser");
-                ObjectOutputStream out = new ObjectOutputStream(fOut);
-                out.writeObject(file);
-                out.close();
-                fOut.close();
-                System.out.println("Saved file to " + fileName + ".ser");
-            }
+            file.writeBitfield("bitfield.txt");
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
         if(!closedAllYet) {
             closeAllConnections();
         }
+        long time = System.currentTimeMillis();
         while(activeConnections.size() > 0) {
-
+             //give all threads 3 seconds to shutdown
+             if(System.currentTimeMillis()-time > 3000) {
+                for(int i = 0; i < activeConnections.size(); i++) {
+                    try {
+                        activeConnections.get(i).interrupt();
+                    } catch (IndexOutOfBoundsException e) {
+                        i--;
+                    }
+                }
+             }
         }
         ready = true;
     }
 
     private synchronized void closeAllConnections() {
         for (int i = 0; i < activeConnections.size(); i++) {
-            PeerConnection peerConnection = activeConnections.get(i);
-            peerConnection.close();
+            try {
+                PeerConnection peerConnection = activeConnections.get(i);
+                peerConnection.close();
+            }
+            catch(IndexOutOfBoundsException e) {
+                //try the same connection again just in case; if it doesn't work this time, it'll break out
+                i--;
+            }
         }
     }
 
-    public void stopDownloading() {
+    public synchronized void stopDownloading() {
         running = false;
     }
 
-    public boolean readyToClose() {
+    public synchronized boolean readyToClose() {
         return ready;
     }
 }

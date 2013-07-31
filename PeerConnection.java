@@ -128,12 +128,6 @@ class PeerConnection extends Thread {
                         //get the type of the message from its id
                         String type = SharedFunctions.decodeMessage(message);
 
-                        System.out.print("debug: " + type + " <_> ");
-                        for (int i = 0; i < 10 && i < message.length; i++) {
-                            System.out.print(message[i]);
-                        }
-                        System.out.println(" " + message.length);
-
                         //if the id is keep-alive, then skip this message since the socket's 3 minute timeout has already been reset
                         if (type.equals("keep-alive")) {
                             continue;
@@ -544,10 +538,14 @@ class PeerUploadConnection extends Thread {
 
     public void run() {
         running = true;
+        long timeOfLastMessage = System.currentTimeMillis();
+        boolean gotFirstMessage = false;
         while (running) {
             try {
                 if (!incomingMessageQueue.isEmpty()) {
+                    timeOfLastMessage = System.currentTimeMillis();
                     byte[] message = incomingMessageQueue.poll();
+                    gotFirstMessage = true;
                     String type = SharedFunctions.decodeMessage(message);
                     switch (type) {
                         case "interested":
@@ -555,7 +553,7 @@ class PeerUploadConnection extends Thread {
                             interested = true;
                             //unchoke peer immediately
                             choking = false;
-                            byte[] unchoke = SharedFunctions.createMessage(1, (byte) 1);
+                            byte[] unchoke = new byte[]{0,0,0,1,1};
                             toPeer.write(unchoke);
                             System.out.println("Sent unchoke message to " + peerIP + ".");
                             break;
@@ -590,6 +588,12 @@ class PeerUploadConnection extends Thread {
                         default:
                             System.out.println("Warning: invalid message in upload connection to " + peerIP + ": " + message);
                             break;
+                    }
+                }
+                else if(gotFirstMessage){
+                    if(System.currentTimeMillis() - timeOfLastMessage > 60*3000) {
+                        System.out.println("We went over our timeout period, so we're shutting off the connection to peer " + peerIP + ".");
+                        break;
                     }
                 }
             } catch (IOException e) {
