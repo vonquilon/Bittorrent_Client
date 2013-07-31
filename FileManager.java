@@ -4,7 +4,7 @@ import java.util.ArrayList;
 public class FileManager implements Serializable {
 
     RandomAccessFile file;
-	ArrayList<Integer> downloading;
+	transient ArrayList<Integer> downloading;
 	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
 	public FileManager(int size, int numberOfPieces, String fileName) throws IOException {
@@ -72,10 +72,14 @@ public class FileManager implements Serializable {
 
     }
 
+    public synchronized void startDownloading(int index) {
+        downloading.add(index);
+    }
+
     public synchronized int getRandomDownloadableIndex(int numberOfPieces) {
         ArrayList<Integer> allIndices = new ArrayList<>();
         for(int i = 0; i < bitfield.length && i < numberOfPieces; i++) {
-            if(bitfield[i] == '0') {
+            if(bitfield[i] == '0' && !downloading.contains(i)) {
                 allIndices.add(i);
             }
         }
@@ -89,13 +93,19 @@ public class FileManager implements Serializable {
         file.close();
     }
 
-    public synchronized boolean doneDownloading() {
-        for (char aBitfield : bitfield) {
+    public synchronized boolean doneDownloading(int numberOfPieces) {
+        for (int i = 0; i < bitfield.length && i < numberOfPieces; i++) {
+            char aBitfield = bitfield[i];
             if (aBitfield == '0') {
                 return false;
             }
         }
         return true;
 
+    }
+
+
+    public synchronized void completedDownloading(Integer index) {
+        downloading.remove(index);
     }
 }

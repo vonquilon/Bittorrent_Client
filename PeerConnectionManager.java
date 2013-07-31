@@ -1,4 +1,4 @@
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -23,6 +23,7 @@ public class PeerConnectionManager {
     int highServerSocketPortRange;
     private boolean running;
     private boolean ready;
+    String fileName;
 
     /**
      * Constructor for the manager, which handles all coordination of the connections
@@ -38,12 +39,26 @@ public class PeerConnectionManager {
         this.highServerSocketPortRange = highServerSocketPortRange;
         this.peerID = peerID;
         this.torrentFile = torrentFile;
-        file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
         ready = true;
+        this.fileName = fileName;
+
+        try {
+            FileInputStream fIn = new FileInputStream(fileName+".ser");
+            ObjectInputStream in = new ObjectInputStream(fIn);
+            file = (FileManager) in.readObject();
+            in.close();
+            fIn.close();
+        } catch (FileNotFoundException | ClassNotFoundException e) {
+            System.out.println("No serialized file part found in this directory. Starting from a fresh download.");
+        } catch (IOException e) {
+            System.out.println("Unable to access file. Starting from a fresh download.");
+        }
+        file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
     }
 
     public void startDownloading() {
         ready = false;
+
         for(int i = lowServerSocketPortRange; i <= highServerSocketPortRange; i++) {
             try {
                 PeerConnection peerConnection = new PeerConnection(new ServerSocket(i), activeConnections, torrentFile, peerID, file);
@@ -59,20 +74,20 @@ public class PeerConnectionManager {
         for(String peer : peers) {
             String[] splitted = peer.split(":");
             assert splitted.length == 2;
-            if(splitted[0].equals("128.6.171.3") /*|| splitted[0].equals("128.6.171.4")*/) {
+            if(splitted[0].equals("128.6.171.3") || splitted[0].equals("128.6.171.4")) {
                 validPeers.add(splitted[0]);
                 validPeerPorts.add(splitted[1]);
 
             }
         }
         running = true;
-        while(!file.doneDownloading() && running){
-            if(activeConnections.size() > 1) {
+        while(!file.doneDownloading(torrentFile.getNumberOfPieces()) && running){
+            if(activeConnections.size() > 2) {
                 continue;
             }
             int peerNumber = Functions.generateRandomInt(validPeerPorts.size()-1);
             try {
-                //since there are 1 or fewer connections (only 2 connections allowed at a time) try connecting to a peer
+                //since there are 2 or fewer connections (only 3 connections allowed at a time) try connecting to a peer
                 PeerConnection peerConnection = new PeerConnection(new Socket(validPeers.get(peerNumber), Integer.parseInt(validPeerPorts.get(peerNumber))), activeConnections, torrentFile, peerID, file);
                 activeConnections.add(peerConnection);
                 System.out.println("Connected to peer at " + validPeers.get(peerNumber) + ".");
@@ -84,6 +99,14 @@ public class PeerConnectionManager {
         }
         try {
             file.close();
+            if(!file.doneDownloading(torrentFile.getNumberOfPieces())) {
+                FileOutputStream fOut = new FileOutputStream(fileName + ".ser");
+                ObjectOutputStream out = new ObjectOutputStream(fOut);
+                out.writeObject(file);
+                out.close();
+                fOut.close();
+                System.out.println("Saved file to " + fileName + ".ser");
+            }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }

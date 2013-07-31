@@ -1,10 +1,7 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
-import java.net.URLConnection;
+import java.net.*;
 import java.util.*;
 
 class PeerConnection extends Thread {
@@ -149,8 +146,12 @@ class PeerConnection extends Thread {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace(); //To change body of catch statement use File | Settings | File Templates.
+        }
+        catch(SocketException e){
+            System.out.println("Server socket on port " + serverSocket.getLocalPort() + " closed.");
+        }
+        catch (Exception e) {
+            e.printStackTrace();
         } finally {
             allConnections.remove(this);
             downloadConnection.running = false;
@@ -172,6 +173,13 @@ class PeerConnection extends Thread {
     public synchronized void close() {
         active = false;
         connectedToPeer = false;
+        if(serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
     }
 
     /**
@@ -351,6 +359,7 @@ class PeerDownloadConnection extends Thread {
                     //3rd -> index = 0
                     message = SharedFunctions.createMessage(13, 6, index, 0, pieceLength, 17);
                     toPeer.write(message);
+                    file.startDownloading(index);
                     System.out.println("Sent a request message for piece " + Integer.toString(index + 1) + ".");
 
                     //read the "piece" message
@@ -369,9 +378,9 @@ class PeerDownloadConnection extends Thread {
                     //}
                     System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
-                    byte[] receivedIndexBytes = java.util.Arrays.copyOfRange(payload, 5, 8);
-                    byte[] receivedBeginBytes = java.util.Arrays.copyOfRange(payload, 9, 12);
-                    byte[] receivedBlockBytes = java.util.Arrays.copyOfRange(payload, 13, 13 + pieceLength - 1);
+                    byte[] receivedIndexBytes = java.util.Arrays.copyOfRange(payload, 5, 9);
+                    byte[] receivedBeginBytes = java.util.Arrays.copyOfRange(payload, 9, 13);
+                    byte[] receivedBlockBytes = java.util.Arrays.copyOfRange(payload, 13, 13 + pieceLength);
                     //System.arraycopy(payload,5,receivedIndexBytes,0,4);
                     //System.arraycopy(payload,9,receivedBeginBytes,0,4);
                     //System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
@@ -384,6 +393,7 @@ class PeerDownloadConnection extends Thread {
                     //toPeer.write(SharedFunctions.createMessage(5,(byte)4,SharedFunctions.intToByteArray(index)));
                     toPeer.write(SharedFunctions.createMessage(5, 4, index, -1, -1, 9));
                     file.insertIntoBitfield(index);
+                    file.completedDownloading(index);
                     //Contacts tracker that download has completed, Header length = 13 bytes
                     trackerCommunication = Functions.makeURL(torrentFile.getAnnounce(), mypeerID, torrentFile.getInfoHashBytes(), 0, torrentFile.getFileSize() + torrentFile.getNumberOfPieces() * 13, 0, "completed").openConnection();
                     trackerCommunication.connect();
