@@ -1,9 +1,13 @@
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 
 
 public class SharedFunctions {
@@ -186,17 +190,6 @@ public class SharedFunctions {
     }
 
     /**
-     * Method that takes a peer message without the length field and returns its payload
-     *
-     * @param message message from a peer, including the length and id fields
-     * @param length  length of the message
-     * @return payload of message
-     */
-    public static byte[] payloadOfPartialMessage(byte[] message, int length) {
-        return Arrays.copyOfRange(message, 1, length);
-    }
-
-    /**
      * Method that takes an entire peer message and returns its payload
      *
      * @param message message from a peer, including the length and id fields
@@ -292,4 +285,35 @@ public class SharedFunctions {
         return charArrayBitfield;
     }
 
+    /**
+     * Gets the next full message from the peer
+     * @param socket the socket object connected to the peer
+     * @return the message from the peer
+     * @throws SocketTimeoutException if the socket goes over its timeout limit
+     */
+    public static byte[] nextPeerMessage(Socket socket) throws IOException, InterruptedException {
+        byte[] lengthBytes = new byte[4];
+        int timeout = socket.getSoTimeout();
+        InputStream is = socket.getInputStream();
+        Calendar cal = Calendar.getInstance();
+        long currentTime = cal.getTimeInMillis();
+        while(is.available() < 4) {
+            SharedFunctions.class.wait(100);
+            if(cal.getTimeInMillis()-currentTime > timeout) {
+                throw new SocketTimeoutException();
+            }
+        }
+        is.read(lengthBytes);
+        int length = lengthOfMessage(lengthBytes);
+        while(is.available() < length) {
+            SharedFunctions.class.wait(100);
+            if(cal.getTimeInMillis()-currentTime > timeout) {
+                throw new SocketTimeoutException();
+            }
+        }
+        byte[] messagePart = new byte[length];
+        is.read(messagePart);
+
+        return concat(lengthBytes,messagePart);
+    }
 }

@@ -55,6 +55,7 @@ class PeerConnection extends Thread {
             while(active) {
                 if(connectionSocket == null && serverSocket != null) {
                     connectionSocket = serverSocket.accept();
+                    System.out.println("Accepted connection on port " + serverSocket.getLocalPort() + " to peer " + connectionSocket.getInetAddress().toString() + ".");
                     connectedToPeer = true;
                 }
                 else if(serverSocket == null && connectionSocket == null) {
@@ -86,15 +87,18 @@ class PeerConnection extends Thread {
                 toPeer.write(bitfieldMessage);
 
 
-                byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+6, connectionSocket.getInetAddress().toString());
+                //byte[] messageFromPeer = SharedFunctions.responseFromPeer(fromPeer, handshakeMessage.length+6, connectionSocket.getInetAddress().toString());
+                byte[] messageFromPeer = SharedFunctions.nextPeerMessage(connectionSocket);
+
                 ArrayList<byte[]> handshakeAndBitfield = detachMessage(messageFromPeer, 68);
                 ArrayList<Integer> indexes = getIndexes(handshakeAndBitfield.get(1), torrentFile.getNumberOfPieces());
                 if (!SharedFunctions.verifyInfoHash(handshakeMessage, messageFromPeer)) {
+                    System.out.println("Connection to peer " + connectionSocket.getInetAddress().toString() + " invalidated. Connection lost.");
                     closeConnection();
                     continue;
                 }
 
-
+                System.out.println("Validated connection to peer " + connectionSocket.getInetAddress().toString() + ".");
                 int messageLength = -1;
                 while(connectedToPeer) {
                     try {
@@ -136,7 +140,7 @@ class PeerConnection extends Thread {
                                 break;
                         }
                     } catch (SocketTimeoutException e) {
-                        System.out.println("Socket to peer " + connectionSocket.getInetAddress().toString() + " timed out.");
+                        System.out.println("Connection to peer " + connectionSocket.getInetAddress().toString() + " timed out.");
                         connectedToPeer = false;
                         if(serverSocket == null) {
                             active = false;
@@ -161,8 +165,6 @@ class PeerConnection extends Thread {
             }
             connectionSocket = null;
         }
-
-
     }
 
 
@@ -318,6 +320,40 @@ class PeerUploadConnection extends Thread {
     public void run() {
         running = true;
         while(running) {
+            try {
+                wait(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+            try {
+                if(!incomingMessageQueue.isEmpty()) {
+                    byte[] message = incomingMessageQueue.poll();
+                    String type = SharedFunctions.decodeMessage(message);
+                    switch(type) {
+                        case "interested":
+                            interested = true;
+                            //unchoke peer immediately
+                            choking = false;
+                            byte[] unchoke = SharedFunctions.createMessage(1,(byte)1);
+                            toPeer.write(unchoke);
+                            break;
+                        case "not interested":
+                            interested = false;
+                            break;
+                        case "request":
+                            if(interested && !choking) {
+                                byte[] payload = SharedFunctions.payloadOfMessage(message);
+
+                            }
+                            break;
+                        default:
+                            System.out.println("Warning: invalid message in upload connection: " + message);
+                            break;
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
 
         }
 
