@@ -72,9 +72,9 @@ public class FileManager implements Serializable {
 
     }
 
-    public synchronized int getRandomDownloadableIndex() {
+    public synchronized int getRandomDownloadableIndex(int numberOfPieces) {
         ArrayList<Integer> allIndices = new ArrayList<>();
-        for(int i = 0; i < bitfield.length; i++) {
+        for(int i = 0; i < bitfield.length && i < numberOfPieces; i++) {
             if(bitfield[i] == '0') {
                 allIndices.add(i);
             }
