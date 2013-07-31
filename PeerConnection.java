@@ -70,7 +70,7 @@ class PeerConnection extends Thread {
                 OutputStream toPeer = connectionSocket.getOutputStream();
 
                 downloadConnection = new PeerDownloadConnection(toPeer);
-                uploadConnection = new PeerUploadConnection(toPeer);
+                uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile);
 
                 downloadConnection.start();
                 uploadConnection.start();
@@ -99,15 +99,8 @@ class PeerConnection extends Thread {
                     try {
                         sleep(200);
 
-                        //if length not defined, read in the first 4 bytes from the input stream; if we don't have enough bytes yet, then try again later
-                        if(messageLength == -1) {
-                            byte[] lengthBytes = new byte[4];
-                            fromPeer.read(lengthBytes);
-                            messageLength = SharedFunctions.lengthOfMessage(lengthBytes);
-                        }
-                        //based on the length, get the rest of the message
-                        byte[] message = new byte[messageLength];
-                        fromPeer.read(message);
+                        //get the next message from the peer
+                        byte[] message = SharedFunctions.nextPeerMessage(connectionSocket);
                         //get the type of the message from its id
                         String type = SharedFunctions.decodePartialMessage(message);
 
@@ -297,6 +290,8 @@ class PeerDownloadConnection extends Thread {
 }
 
 class PeerUploadConnection extends Thread {
+    TorrentFile torrentFile;
+    FileManager file;
     OutputStream toPeer;
     Queue<byte[]> incomingMessageQueue;
 
@@ -305,11 +300,13 @@ class PeerUploadConnection extends Thread {
 
     boolean running;
 
-    public PeerUploadConnection(OutputStream toPeer) {
+    public PeerUploadConnection(OutputStream toPeer, FileManager file, TorrentFile torrentFile) {
         this.toPeer = toPeer;
         incomingMessageQueue = new PriorityQueue<byte[]>();
         choking = true;
         interested = false;
+        this.file = file;
+        this.torrentFile = torrentFile;
     }
 
     public void run() {
@@ -332,8 +329,24 @@ class PeerUploadConnection extends Thread {
                             break;
                         case "request":
                             if(interested && !choking) {
-                                byte[] payload = SharedFunctions.payloadOfMessage(message);
+                                byte[] payloadFromPeer = SharedFunctions.payloadOfMessage(message);
+                                byte[] indexBytes = new byte[4];
+                                byte[] beginBytes = new byte[4];
+                                byte[] lengthBytes = new byte[4];
+                                int index = SharedFunctions.byteArrayToInt(indexBytes);
+                                int begin = SharedFunctions.byteArrayToInt(beginBytes);
+                                int length = SharedFunctions.byteArrayToInt(lengthBytes);
+                                int pieceSize = torrentFile.getPieceSize();
 
+                                int start = index*pieceSize+begin;
+                                byte[] data = new byte[length];
+                                file.file.readFully(data,start,length);
+
+                                byte[] payloadToPeer = SharedFunctions.concat(indexBytes,beginBytes);
+                                payloadToPeer = SharedFunctions.concat(payloadToPeer,data);
+                                byte[] pieceMessage = SharedFunctions.createMessage(9+length,(byte)7,payloadToPeer);
+
+                                toPeer.write(pieceMessage);
                             }
                             break;
                         default:

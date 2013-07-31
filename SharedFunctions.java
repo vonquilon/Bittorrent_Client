@@ -186,7 +186,17 @@ public class SharedFunctions {
      */
     public static int lengthOfMessage(byte[] message) {
         message = Arrays.copyOfRange(message, 0, 4);
-        return ByteBuffer.wrap(message).order(ByteOrder.BIG_ENDIAN).getInt();
+        return byteArrayToInt(message);
+    }
+
+    /**
+     * Turns an array of 4 bytes into an int
+     *
+     * @param bytes the 4 bytes
+     * @return the int value represented by these 4 bytes
+     */
+    public static int byteArrayToInt(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN).getInt();
     }
 
     /**
