@@ -45,7 +45,14 @@ class PeerConnection extends Thread {
         this.myPeerID = myPeerID;
     }
 
-    //initializes this connecton as a server socket waiting for a peer to connect to it
+    /**
+     * Initializes this connection as a server socket waiting for a peer
+     * @param socket an unbound server socket
+     * @param allConnections list of all connections
+     * @param torrentFile the torrent file, read into memory and parsed
+     * @param myPeerID the generated peer ID that we go by
+     * @param fileManager the class that manages our downloaded file
+     */
     public PeerConnection(ServerSocket socket, List<PeerConnection> allConnections, TorrentFile torrentFile, byte[] myPeerID, FileManager fileManager) {
         serverSocket = socket;
         this.allConnections = allConnections;
@@ -55,7 +62,9 @@ class PeerConnection extends Thread {
         this.myPeerID = myPeerID;
     }
 
-
+    /**
+     * Starts this connection
+     */
     public void run() {
         try {
             active = true;
@@ -376,7 +385,7 @@ class PeerDownloadConnection extends Thread {
                 //gets random index number
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
-                    System.out.println("Every piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
+                    System.out.println("piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
                     break;
                 }
 
@@ -407,20 +416,27 @@ class PeerDownloadConnection extends Thread {
 
                     }
                     byte[] piece = incomingMessageQueue.poll();
-                    if (SharedFunctions.decodeMessage(piece) == "choke") {
+                    if (SharedFunctions.decodeMessage(piece).equals("choke")) {
                         System.out.println("Peer choked us, so we couldn't download. Cutting the connection.");
                         break;
-                    }
-                    byte[] payload = SharedFunctions.payloadOfMessage(piece);
+                    };
+                    ArrayList<byte[]> detached = detachMessage(piece, 13);
                     //System.out.println("debug " + SharedFunctions.decodeMessage(piece));
                     //if(!SharedFunctions.decodeMessage(piece).equals("piece")) {
                     //    throw new IOException("Peer did not send requested piece!");
                     //}
+                    for(int i = 0; i < pieceLength; i++) {
+
+                    }
+                    byte[] receivedBlockBytes = detached.get(1);
+                    if(!verifyPieceHash(receivedBlockBytes, index, torrentFile.getPieceHashes()) || !( SharedFunctions.decodeMessage(detached.get(0)).equals("piece") )) {
+                        System.out.println("Hashes didn't match up. Cutting the connection.");
+                        break;
+                    }
+
+
                     System.out.println("Piece " + Integer.toString(index + 1) + ": " + Integer.toString(pieceLength) + " bytes downloaded from " + peerIP);
 
-                    byte[] receivedIndexBytes = java.util.Arrays.copyOfRange(payload, 5, 9);
-                    byte[] receivedBeginBytes = java.util.Arrays.copyOfRange(payload, 9, 13);
-                    byte[] receivedBlockBytes = java.util.Arrays.copyOfRange(payload, 13, 13 + pieceLength);
                     //System.arraycopy(payload,5,receivedIndexBytes,0,4);
                     //System.arraycopy(payload,9,receivedBeginBytes,0,4);
                     //System.arraycopy(payload,13,receivedBlockBytes,0,pieceLength);
@@ -442,6 +458,52 @@ class PeerDownloadConnection extends Thread {
         } catch (IOException e) {
             System.out.println("IO in downloading from peer "+ peerIP + " was interrupted.");
         }
+
+    }
+
+    /**
+     * Private helper method that verifies the downloaded piece hash
+     * with one of the hashes given in the torrent file.
+     *
+     * @param piece
+     * @param index       Used for locating the corresponding piece in the
+     *                    ArrayList of pieceHashes
+     * @param pieceHashes
+     * @return boolean true if verified, false if not
+     */
+    private static boolean verifyPieceHash(byte[] piece, int index, ArrayList<byte[]> pieceHashes) {
+
+        byte[] pieceHash = Functions.encodeToSHA1(piece);
+        if (Arrays.equals(pieceHash, pieceHashes.get(index)))
+            return true;
+        else
+            return false;
+
+    }
+
+
+    /**
+     * Private helper method that separates a data that contains two different information.
+     *
+     * @param attachedMessage The data to be separated
+     * @param message1Length  Used for obtaining message2Length:
+     *                        message2Length=attachedMessage.length-message1Length
+     */
+    private static ArrayList<byte[]> detachMessage(byte[] attachedMessage, int message1Length) {
+
+        byte[] message1 = new byte[message1Length];
+        int message2Length = attachedMessage.length - message1Length;
+        byte[] message2 = new byte[message2Length];
+        ArrayList<byte[]> detachedData = new ArrayList<byte[]>(2);
+
+        //copies header data into message byte[]
+        System.arraycopy(attachedMessage, 0, message1, 0, message1Length);
+        detachedData.add(message1);
+        //copies piece data into piece byte[]
+        System.arraycopy(attachedMessage, message1Length, message2, 0, message2Length);
+        detachedData.add(message2);
+
+        return detachedData;
 
     }
 

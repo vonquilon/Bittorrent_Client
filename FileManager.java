@@ -3,7 +3,7 @@ import java.util.ArrayList;
 
 public class FileManager implements Serializable {
 
-    RandomAccessFile file;
+    transient RandomAccessFile file;
 	transient ArrayList<Integer> downloading;
 	char[] bitfield = {'0', '0', '0', '0', '0', '0', '0', '0'};
 	
@@ -18,7 +18,12 @@ public class FileManager implements Serializable {
 		downloading = new ArrayList<Integer>(numberOfPieces);
 		
 	}
-	
+
+    private void serialize(ObjectOutputStream stream) throws IOException {
+        stream.defaultWriteObject();
+        stream.writeLong(file.getFilePointer());
+    }
+
 	public synchronized void insertIntoBitfield(int index) {
 		
 		downloading.remove((Integer) index);
