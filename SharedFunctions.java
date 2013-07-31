@@ -301,21 +301,20 @@ public class SharedFunctions {
      * @return the message from the peer
      * @throws SocketTimeoutException if the socket goes over its timeout limit
      */
-    public static byte[] nextPeerMessage(Socket socket) throws IOException, InterruptedException {
+    public static byte[] nextPeerMessage(Socket socket, InputStream is) throws IOException, InterruptedException {
         byte[] lengthBytes = new byte[4];
         int timeout = socket.getSoTimeout();
-        InputStream is = socket.getInputStream();
-        Calendar cal = Calendar.getInstance();
-        long currentTime = cal.getTimeInMillis();
+        long startingTime = System.currentTimeMillis();
         while(is.available() < 4) {
-            if(cal.getTimeInMillis()-currentTime > timeout) {
+            if(System.currentTimeMillis()-startingTime > timeout) {
                 throw new SocketTimeoutException();
             }
         }
         is.read(lengthBytes);
         int length = lengthOfMessage(lengthBytes);
+        startingTime = System.currentTimeMillis();
         while(is.available() < length) {
-            if(cal.getTimeInMillis()-currentTime > timeout) {
+            if(System.currentTimeMillis()-startingTime > timeout) {
                 throw new SocketTimeoutException();
             }
         }
@@ -330,5 +329,53 @@ public class SharedFunctions {
        buffer.order(ByteOrder.BIG_ENDIAN);
        buffer.putInt(integer);
        return buffer.array();
+    }
+
+    /**
+     * Helper method that creates a message for a peer.
+     *
+     * @param lengthPrefix Length of message in bytes excluding lengthPrefix
+     * @param id           Message identifier
+     * @param index        Piece index
+     * @param begin        Byte offset in piece
+     * @param length       Size of requested block
+     * @param byteSize     Size of expected message
+     * @return message 	   The created message in byte[] form
+     */
+    public static byte[] createMessage(int lengthPrefix, int id, int index, int begin, int length, int byteSize) {
+
+        byte[] message = new byte[byteSize];
+        int offset = 0;
+
+        if (lengthPrefix >= 0) {
+            byte[] temp = new byte[]{0, 0, 0, (byte) lengthPrefix};
+            System.arraycopy(temp, 0, message, offset, temp.length);
+            offset += 4;
+        }
+
+        if (id >= 0) {
+            message[offset] = (byte) id;
+            offset++;
+        }
+
+        if (index >= 0) {
+            byte[] temp = ByteBuffer.allocate(4).putInt(index).array();
+            System.arraycopy(temp, 0, message, offset, temp.length);
+            offset += 4;
+        }
+
+        if (begin >= 0) {
+            byte[] temp = ByteBuffer.allocate(4).putInt(begin).array();
+            System.arraycopy(temp, 0, message, offset, temp.length);
+            offset += 4;
+        }
+
+        if (length >= 0) {
+            byte[] temp = ByteBuffer.allocate(4).putInt(length).array();
+            System.arraycopy(temp, 0, message, offset, temp.length);
+        }
+
+        return message;
+
     }
 }

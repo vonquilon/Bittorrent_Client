@@ -73,8 +73,6 @@ class PeerConnection extends Thread {
                 downloadConnection = new PeerDownloadConnection(toPeer, fileManager, torrentFile, connectionSocket.getInetAddress().toString(), myPeerID);
                 uploadConnection = new PeerUploadConnection(toPeer, fileManager, torrentFile, connectionSocket.getInetAddress().toString());
 
-                downloadConnection.start();
-                uploadConnection.start();
 
                 byte[] handshakeMessage = SharedFunctions.createHandshake(torrentFile.getInfoHashBytes(), myPeerID);
                 toPeer.write(handshakeMessage);
@@ -96,12 +94,16 @@ class PeerConnection extends Thread {
 
                 System.out.println("Validated connection to peer " + connectionSocket.getInetAddress().toString() + ".");
                 int messageLength = -1;
+
+                downloadConnection.start();
+                uploadConnection.start();
+
                 while(connectedToPeer) {
                     try {
                         sleep(200);
 
                         //get the next message from the peer
-                        byte[] message = SharedFunctions.nextPeerMessage(connectionSocket);
+                        byte[] message = SharedFunctions.nextPeerMessage(connectionSocket, connectionSocket.getInputStream());
                         //get the type of the message from its id
                         String type = SharedFunctions.decodeMessage(message);
 
@@ -292,11 +294,13 @@ class PeerDownloadConnection extends Thread {
 
             try {
                 //creates an "interested" message
-                byte[] message = SharedFunctions.createMessage(1,(byte)2);
+                //byte[] message = SharedFunctions.createMessage(1,(byte)2);
+                byte[] message = SharedFunctions.createMessage(1,2,-1,-1,-1,5);
+                System.out.println("debug " + SharedFunctions.decodeMessage(message));
                 toPeer.write(message);
 
                 //wait to be unchoked
-                while(!incomingMessageQueue.isEmpty()) {
+                while(incomingMessageQueue.isEmpty()) {
 
                 }
                 byte[] unchoke = incomingMessageQueue.poll();
@@ -330,7 +334,7 @@ class PeerDownloadConnection extends Thread {
                         message = SharedFunctions.createMessage(13, (byte)6, request);
 
                         //read the "piece" message
-                        while(!incomingMessageQueue.isEmpty()) {
+                        while(incomingMessageQueue.isEmpty()) {
 
                         }
                         byte[] piece = incomingMessageQueue.poll();
