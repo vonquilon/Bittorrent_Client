@@ -64,9 +64,9 @@ public class RUBTClient {
 
                     ArrayList<String> peers = TrackerConnection.getPeersFromTrackerResponse(trackerResponse);
                     peerConnectionManager = new PeerConnectionManager(9593,9593, peers, torrentFile, peerID, fileName);
-                    peerConnectionManager.startDownloading();
+                    peerConnectionManager.start();
                 } catch (Exception exception) {
-                	System.err.println("Could not save to " +fileName);
+                	System.err.println("Could not save to " + fileName);
                 }
             }
         });
@@ -139,7 +139,12 @@ public class RUBTClient {
             //wait
         }
         if(peerConnectionManager != null) {
-            peerConnectionManager.stop();
+            peerConnectionManager.stopDownloading();
+            try {
+                peerConnectionManager.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
         }
         System.exit(0);
     }

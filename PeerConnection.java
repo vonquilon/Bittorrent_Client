@@ -1,3 +1,5 @@
+import sun.security.util.BigInt;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,7 +34,6 @@ class PeerConnection extends Thread {
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
         this.myPeerID = myPeerID;
-        //this.setDaemon(true);
     }
 
     //initializes this connecton as a server socket waiting for a peer to connect to it
@@ -43,7 +44,6 @@ class PeerConnection extends Thread {
         this.torrentFile = torrentFile;
         this.fileManager = fileManager;
         this.myPeerID = myPeerID;
-        //this.setDaemon(true);
     }
 
 
@@ -150,16 +150,28 @@ class PeerConnection extends Thread {
         catch(SocketException e){
             System.out.println("Server socket on port " + serverSocket.getLocalPort() + " closed.");
         }
+        catch (IOException e) {
+            if(e.toString().contains("Stream closed.")) {
+                System.out.println("Socket to peer " + connectionSocket.getInetAddress().toString() + " is closed.");
+            }
+            else {
+                e.printStackTrace();
+            }
+        }
         catch (Exception e) {
             e.printStackTrace();
         } finally {
             allConnections.remove(this);
-            downloadConnection.running = false;
-            uploadConnection.running = false;
             try {
-                downloadConnection.join();
-                uploadConnection.join();
-                if (!connectionSocket.isClosed()) {
+                if(downloadConnection != null) {
+                    downloadConnection.stopDownloading();
+                    downloadConnection.join();
+                }
+                if(uploadConnection != null) {
+                    uploadConnection.stopUploading();
+                    uploadConnection.join();
+                }
+                if (connectionSocket != null && !connectionSocket.isClosed()) {
                     connectionSocket.close();
                 }
             } catch (InterruptedException | IOException e) {
@@ -179,6 +191,14 @@ class PeerConnection extends Thread {
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
+        }
+        if(connectionSocket != null) {
+            try {
+                connectionSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+
         }
     }
 
@@ -283,6 +303,13 @@ class PeerConnection extends Thread {
         fromPeer.read(message);
         return message;
     }
+
+    public String getIPAddress() {
+        if(connectionSocket == null) {
+            return null;
+        }
+        return connectionSocket.getInetAddress().toString();
+    }
 }
 
 class PeerDownloadConnection extends Thread {
@@ -336,7 +363,7 @@ class PeerDownloadConnection extends Thread {
                 //gets random index number
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
-                    System.out.println("No more pieces to download.");
+                    System.out.println("Every piece is downloading or finished, so I'm cutting my connection with" + peerIP + ".");
                     break;
                 }
 
@@ -411,6 +438,10 @@ class PeerDownloadConnection extends Thread {
 
     public void setIndexes(ArrayList<Integer> indexes) {
         this.indexes = indexes;
+    }
+
+    public synchronized void stopDownloading() {
+        running = false;
     }
 }
 
@@ -496,6 +527,10 @@ class PeerUploadConnection extends Thread {
 
     public synchronized void enqueueMessage(byte[] message) {
         incomingMessageQueue.offer(message);
+    }
+
+    public synchronized void stopUploading() {
+        running = false;
     }
 
 }

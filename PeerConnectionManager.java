@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -11,7 +12,7 @@ import java.util.List;
  * Time: 2:01 PM
  * To change this template use File | Settings | File Templates.
  */
-public class PeerConnectionManager {
+public class PeerConnectionManager extends Thread{
     List<PeerConnection> activeConnections;
 
     ArrayList<String> peers;
@@ -34,7 +35,7 @@ public class PeerConnectionManager {
      */
     public PeerConnectionManager(int lowServerSocketPortRange, int highServerSocketPortRange, ArrayList<String> peers, TorrentFile torrentFile, byte[] peerID, String fileName) throws IOException {
         this.peers = peers;
-        activeConnections = new ArrayList<>();
+        activeConnections = Collections.synchronizedList(new ArrayList<PeerConnection>());
         this.lowServerSocketPortRange = lowServerSocketPortRange;
         this.highServerSocketPortRange = highServerSocketPortRange;
         this.peerID = peerID;
@@ -54,6 +55,11 @@ public class PeerConnectionManager {
             System.out.println("Unable to access file. Starting from a fresh download.");
         }
         file = new FileManager(torrentFile.getFileSize(), torrentFile.getNumberOfPieces(), fileName);
+    }
+
+    @Override
+    public void run() {
+        startDownloading();
     }
 
     public void startDownloading() {
@@ -81,20 +87,35 @@ public class PeerConnectionManager {
             }
         }
         running = true;
-        while(!file.doneDownloading(torrentFile.getNumberOfPieces()) && running){
+        while(running){
+            if(file.doneDownloading(torrentFile.getNumberOfPieces())) {
+                continue;
+            }
             if(activeConnections.size() > 2) {
                 continue;
             }
-            int peerNumber = Functions.generateRandomInt(validPeerPorts.size()-1);
-            try {
-                //since there are 2 or fewer connections (only 3 connections allowed at a time) try connecting to a peer
-                PeerConnection peerConnection = new PeerConnection(new Socket(validPeers.get(peerNumber), Integer.parseInt(validPeerPorts.get(peerNumber))), activeConnections, torrentFile, peerID, file);
-                activeConnections.add(peerConnection);
-                System.out.println("Connected to peer at " + validPeers.get(peerNumber) + ".");
-                peerConnection.start();
+            int peerNumber = Functions.generateRandomInt(validPeerPorts.size());
+            boolean alreadyConnected = false;
+            for (int i = 0; i < activeConnections.size(); i++) {
+                PeerConnection peerConnection = activeConnections.get(i);
+                String ipAddress = peerConnection.getIPAddress();
+                if (ipAddress != null && ipAddress.contains(validPeers.get(peerNumber))) {
+                    alreadyConnected = true;
+                }
+            }
+            if(!alreadyConnected){
+                try {
+                    //since there are 2 or fewer connections (only 3 connections allowed at a time) try connecting to a peer
 
-            } catch (IOException e) {
-                System.out.println("Warning: unable to connect to host " + validPeers.get(peerNumber) + " on port " + validPeerPorts.get(peerNumber) + ".");
+
+                    PeerConnection peerConnection = new PeerConnection(new Socket(validPeers.get(peerNumber), Integer.parseInt(validPeerPorts.get(peerNumber))), activeConnections, torrentFile, peerID, file);
+                    activeConnections.add(peerConnection);
+                    System.out.println("Connected to peer at " + validPeers.get(peerNumber) + ".");
+                    peerConnection.start();
+
+                } catch (IOException e) {
+                    System.out.println("Warning: unable to connect to host " + validPeers.get(peerNumber) + " on port " + validPeerPorts.get(peerNumber) + ".");
+                }
             }
         }
         try {
@@ -110,7 +131,8 @@ public class PeerConnectionManager {
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
-        for(PeerConnection peerConnection : activeConnections) {
+        for (int i = 0; i < activeConnections.size(); i++) {
+            PeerConnection peerConnection = activeConnections.get(i);
             peerConnection.close();
         }
         while(activeConnections.size() > 0) {
@@ -119,7 +141,7 @@ public class PeerConnectionManager {
         ready = true;
     }
 
-    public void stop() {
+    public void stopDownloading() {
         running = false;
     }
 
