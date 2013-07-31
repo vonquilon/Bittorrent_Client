@@ -1,4 +1,4 @@
-import sun.security.util.BigInt;
+
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -6,6 +6,13 @@ import java.io.OutputStream;
 import java.net.*;
 import java.util.*;
 
+
+/**
+ * A class representing the connection to a peer along which byte data can be sent in either direction
+ * @authors Von Kenneth Quilon & Alex Loh
+ * @date 07/31/2013
+ * @version 1.0
+ */
 class PeerConnection extends Thread {
     String connectionSocketIP;
     FileManager fileManager;
@@ -417,7 +424,7 @@ class PeerDownloadConnection extends Thread {
                 //gets random index number
                 int index = file.getRandomDownloadableIndex(torrentFile.getNumberOfPieces());
                 if (index == -1) {
-                    System.out.println("piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
+                    System.out.println("Selected piece is downloading or finished, so I'm cutting my connection with " + peerIP + ".");
                     break;
                 }
 
@@ -444,7 +451,7 @@ class PeerDownloadConnection extends Thread {
                     if (SharedFunctions.decodeMessage(piece).equals("choke")) {
                         System.out.println("Peer choked us, so we couldn't download. Cutting the connection.");
                         break;
-                    };
+                    }
                     ArrayList<byte[]> detached = detachMessage(piece, 13);
                     for(int i = 0; i < pieceLength; i++) {
 

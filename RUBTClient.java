@@ -5,10 +5,10 @@ import java.util.ArrayList;
 
 /**
  * RUBTClient is a simple BitTorrent client that parses a torrent file
- * and downloads an image file from one peer.
+ * and downloads an image file from multiple peers.
  * 
  * @authors Von Kenneth Quilon & Alex Loh
- * @date 07/12/2013
+ * @date 07/31/2013
  * @version 1.0
  */
 public class RUBTClient {
@@ -77,8 +77,11 @@ public class RUBTClient {
     	exit = new JButton( new AbstractAction("Exit") {
             @Override
             public void actionPerformed( ActionEvent e ) {
+                setExitProgram(true);
+                while(!exitProgram) {
+                    setExitProgram(true);
+                }
             	window.dispose();
-                exitProgram = true;
             }
         });
     }
@@ -147,5 +150,13 @@ public class RUBTClient {
             }
         }
         System.exit(0);
+    }
+
+    /**
+     * synchronized setter for exiting this program
+     * @param exit whether we can exit or not
+     */
+    private static synchronized void setExitProgram(boolean exit) {
+        exitProgram = exit;
     }
 }

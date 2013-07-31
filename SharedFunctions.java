@@ -9,8 +9,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 
-
+/**
+ * This class contains helper functions for doing general peer-to-peer tasks
+ * like reading data from a stream or creating messages of certain formats
+ *
+ * @authors Von Kenneth Quilon & Alex Loh
+ * @date 07/31/2013
+ * @version 1.0
+ */
 public class SharedFunctions {
+    //private constructor to prevent instantiation
+    private SharedFunctions() {
+
+    }
 
     /**
      * Method that creates a handshake message for a peer.
@@ -226,81 +237,6 @@ public class SharedFunctions {
     }
 
     /**
-     * Method that takes a peer message without the length field and returns its payload
-     *
-     * @param message message from a peer, including the length and id fields
-     * @return payload of message
-     */
-    public static byte[] payloadOfPartialMessage(byte[] message) {
-        return Arrays.copyOfRange(message, 1, message.length);
-    }
-
-    /**
-     * Method that compresses the FileManager's representation of the bitfield (a char[]) into a byte array for sending to a peer
-     *
-     * @param bitfield the FileManager's representation of the bitfield
-     * @return the compressed bitfield
-     */
-    public static byte[] compressBitfield(char[] bitfield) {
-        int byteNumber = 0;
-        byte currentByte = 0;
-        byte[] compressedBitfield = new byte[(bitfield.length+7)/8];
-        for(int i = 0; i < bitfield.length; i++) {
-            int byteIndex = i % 8;
-            if(byteIndex == 0 && i != 0) {
-                compressedBitfield[byteNumber] = currentByte;
-                byteNumber++;
-                currentByte = 0;
-            }
-            //01234567
-            if(bitfield[i] == '1') {
-                currentByte |= 1 << (7-byteIndex);
-            }
-            else if(bitfield[i] == '0') {
-
-            }
-            else {
-                throw new IllegalArgumentException();
-            }
-        }
-        compressedBitfield[byteNumber] = currentByte;
-
-        return compressedBitfield;
-    }
-
-    /**
-     * Method that decompresses the network's representation of the bitfield (a byte[]) into a char array for easier reading
-     *
-     * @param bitfield the network's representation of the bitfield
-     * @return the compressed bitfield
-     */
-    public static char[] decompressBitfield(byte[] bitfield) {
-        ArrayList<Character> newBitfield = new ArrayList<>();
-        //convert the bitfield to a binary string, then to a char array, then add all the chars in the array to the bitfield
-        for(byte b : bitfield) {
-            String decompressedBitfield = String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
-            for(char c : decompressedBitfield.toCharArray()) {
-                newBitfield.add(c);
-            }
-        }
-        //remove the 0 bits used as padding at the end of the byte[] bitfield
-        for(int i = newBitfield.size()-1; i >= 0; i++) {
-            if(newBitfield.get(i) == '0') {
-                newBitfield.remove(i);
-            }
-            else {
-                break;
-            }
-        }
-        //get the raw char data from the arraylist and put it into the char[] to return
-        char[] charArrayBitfield = new char[newBitfield.size()];
-        for (int i = 0; i < newBitfield.size(); i++) {
-            charArrayBitfield[i] = newBitfield.get(i);
-        }
-        return charArrayBitfield;
-    }
-
-    /**
      * Gets the next full message from the peer
      * @param socket the socket object connected to the peer
      * @return the message from the peer
@@ -329,12 +265,6 @@ public class SharedFunctions {
         return concat(lengthBytes,messagePart);
     }
 
-    public static byte[] intToByteArray(int integer) {
-       ByteBuffer buffer = ByteBuffer.allocate(4);
-       buffer.order(ByteOrder.BIG_ENDIAN);
-       buffer.putInt(integer);
-       return buffer.array();
-    }
 
     /**
      * Helper method that creates a message for a peer.

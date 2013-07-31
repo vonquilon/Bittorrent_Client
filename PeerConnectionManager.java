@@ -6,11 +6,13 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Created with IntelliJ IDEA.
- * User: admin
- * Date: 7/28/13
- * Time: 2:01 PM
- * To change this template use File | Settings | File Templates.
+ * This class acts as a manager over all the existing peer connections, and ensures that connections are
+ * created within working limits and closed properly before exiting. It delegates the main 'download file'
+ * responsibility among its peer connections.
+ *
+ * @authors Von Kenneth Quilon & Alex Loh
+ * @date 07/31/2013
+ * @version 1.0
  */
 public class PeerConnectionManager extends Thread{
     List<PeerConnection> activeConnections;
@@ -52,11 +54,19 @@ public class PeerConnectionManager extends Thread{
         }
     }
 
+    /**
+     * start downloading from the peers
+     */
     @Override
     public void run() {
         startDownloading();
     }
 
+    /**
+     * create PeerConnections from server sockets and sockets to peers, then
+     * handles their creations/deletions and releases resources upon the
+     * ultimate shutdown of the client
+     */
     public void startDownloading() {
         ready = false;
 
@@ -74,7 +84,6 @@ public class PeerConnectionManager extends Thread{
         ArrayList<String> validPeerPorts = new ArrayList<>();
         for(String peer : peers) {
             String[] splitted = peer.split(":");
-            assert splitted.length == 2;
             if(splitted[0].equals("128.6.171.3") || splitted[0].equals("128.6.171.4")) {
                 validPeers.add(splitted[0]);
                 validPeerPorts.add(splitted[1]);
@@ -139,6 +148,9 @@ public class PeerConnectionManager extends Thread{
         ready = true;
     }
 
+    /**
+     * When called, closes all the connections.
+     */
     private synchronized void closeAllConnections() {
         for (int i = 0; i < activeConnections.size(); i++) {
             try {
@@ -152,11 +164,10 @@ public class PeerConnectionManager extends Thread{
         }
     }
 
+    /**
+     * Tells all of the sockets to stop their connections and clear resources, then exit.
+     */
     public synchronized void stopDownloading() {
         running = false;
-    }
-
-    public synchronized boolean readyToClose() {
-        return ready;
     }
 }

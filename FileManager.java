@@ -4,6 +4,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
+/**
+ * A class representing the file that is written to and read from in the process of downloading from the peers
+ * @authors Von Kenneth Quilon & Alex Loh
+ * @date 07/31/2013
+ * @version 1.0
+ */
 public class FileManager{
 
     RandomAccessFile file;
@@ -40,13 +46,6 @@ public class FileManager{
 		
 	}
 	
-	public synchronized byte getBitfield() {
-		
-		String bitfieldString = String.valueOf(bitfield);
-		return (byte) Integer.parseInt(bitfieldString, 2);
-		
-	}
-	
 	/**
      * Method that assembles the piece into the file.
      *
@@ -69,10 +68,6 @@ public class FileManager{
         file.seek(pieceSize*index);
         file.read(piece,begin,length);
         return piece;
-    }
-
-    public synchronized void loadFile(String filename) {
-
     }
 
     public synchronized void startDownloading(int index) {
