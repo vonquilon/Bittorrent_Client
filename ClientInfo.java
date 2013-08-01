@@ -14,6 +14,9 @@ public class ClientInfo {
 
 	public final static byte[] PEER_ID = generatePeerID();
 	public static Integer port;
+	public static int uploaded = 0;
+	public static int downloaded = 0;
+	public static int left;
 	
 	/**
      * Sets the public final static field, PEER_ID, to 20 bytes of characters.
@@ -70,5 +73,9 @@ public class ClientInfo {
     	}//end for
     	if(port.equals(null))
     		throw new NoSuchElementException("No available port! Free up a port between 6881 and 6889.");
+    }
+    
+    public static void setLeft(int leftToDownload) {
+    	left = leftToDownload;
     }
 }

@@ -65,6 +65,7 @@ public class RUBTClient {
             		ClientInfo.setPort();
             		System.out.println("Using port: " + ClientInfo.port + "\n");
             		TorrentInfo torrentInfo = TorrentParser.parseTorrent(torrentName);
+            		ClientInfo.setLeft(torrentInfo.file_length);
             	} catch (NoSuchElementException exception) {
             		System.err.println(exception.getMessage() + "\n");
             	}
