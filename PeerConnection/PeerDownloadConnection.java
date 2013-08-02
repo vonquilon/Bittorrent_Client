@@ -1,5 +1,9 @@
 package PeerConnection;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Queue;
+
 /**
  * Created with IntelliJ IDEA.
  * User: admin
@@ -8,4 +12,10 @@ package PeerConnection;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerDownloadConnection {
+    Queue<PeerMessage> messageQueue;
+    OutputStream toPeer;
+
+    public void close() throws IOException {
+
+    }
 }

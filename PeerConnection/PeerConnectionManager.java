@@ -1,5 +1,6 @@
 package PeerConnection;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -10,5 +11,12 @@ import java.util.ArrayList;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnectionManager {
-    ArrayList<PeerConnection> activePeerConnections;
+    ArrayList<PeerConnection> peerConnections;
+
+    public void closeAllConnections() throws IOException {
+        for(PeerConnection peerConnection : peerConnections) {
+            peerConnection.close();
+        }
+    }
+
 }

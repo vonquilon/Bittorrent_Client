@@ -1,5 +1,7 @@
 package PeerConnection;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Queue;
 
 /**
@@ -11,4 +13,8 @@ import java.util.Queue;
  */
 public class PeerUploadConnection {
     Queue<PeerMessage> messageQueue;
+    OutputStream toPeer;
+
+    public void close() throws IOException {
+    }
 }

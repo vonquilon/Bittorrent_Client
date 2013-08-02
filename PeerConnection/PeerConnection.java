@@ -1,5 +1,6 @@
 package PeerConnection;
 
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -15,4 +16,29 @@ public class PeerConnection {
     ServerSocket serverSocketToPeer;
     PeerDownloadConnection downloadConnection;
     PeerUploadConnection uploadConnection;
+
+
+    public void close() throws IOException {
+        closeStreams();
+        closeSockets();
+
+    }
+
+    private void closeStreams() throws IOException {
+        if(downloadConnection != null) {
+            downloadConnection.close();
+        }
+        if(uploadConnection != null) {
+            uploadConnection.close();
+        }
+    }
+
+    private void closeSockets() throws IOException {
+        if(serverSocketToPeer != null && !serverSocketToPeer.isClosed()) {
+            serverSocketToPeer.close();
+        }
+        if(socketToPeer != null && !socketToPeer.isClosed()) {
+            socketToPeer.close();
+        }
+    }
 }

@@ -35,4 +35,8 @@ enum MessageType {
     MessageType(int id) {
         this.id = id;
     }
+
+    MessageType decodeMessage(byte[] fullMessage) {
+
+    }
 }
