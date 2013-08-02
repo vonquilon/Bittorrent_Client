@@ -42,7 +42,7 @@ public class RUBTClient {
 	 */
 	public RUBTClient(String torrentName, String fileName) {
 		frame = new JFrame("RUBTClient");
-		textArea = new JTextArea(10, 50);
+		textArea = new JTextArea(30, 50);
 		bottomPanel = new JPanel(new BorderLayout());
 		createStartButton();
 		createPauseButton();
@@ -66,6 +66,7 @@ public class RUBTClient {
             		System.out.println("Using port: " + ClientInfo.port + "\n");
             		TorrentInfo torrentInfo = TorrentParser.parseTorrent(torrentName);
             		ClientInfo.setLeft(torrentInfo.file_length);
+            		new Thread(new TrackerConnection(torrentInfo)).start();
             	} catch (NoSuchElementException exception) {
             		System.err.println(exception.getMessage() + "\n");
             	}

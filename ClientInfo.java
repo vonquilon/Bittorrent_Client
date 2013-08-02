@@ -12,10 +12,29 @@ import java.util.Random;
  */
 public class ClientInfo {
 
+	/**
+	 * The client's current 20 bytes peer ID.
+	 */
 	public final static byte[] PEER_ID = generatePeerID();
+	
+	/**
+	 * The port number that the client is currently using.
+	 */
 	public static Integer port;
+	
+	/**
+	 * The number of bytes the client has uploaded.
+	 */
 	public static int uploaded = 0;
+	
+	/**
+	 * The number of bytes the client has downloaded.
+	 */
 	public static int downloaded = 0;
+	
+	/**
+	 * The number of bytes the client has not yet downloaded.
+	 */
 	public static int left;
 	
 	/**
@@ -75,6 +94,11 @@ public class ClientInfo {
     		throw new NoSuchElementException("No available port! Free up a port between 6881 and 6889.");
     }
     
+    /**
+     * Sets the public static field, left, to an integer specified by the parameter.
+     * 
+     * @param leftToDownload - the number of bytes the client still has to download
+     */
     public static void setLeft(int leftToDownload) {
     	left = leftToDownload;
     }
