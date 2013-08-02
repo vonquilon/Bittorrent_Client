@@ -2,8 +2,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * TrackerConnection sends HTTP request messages to the tracker. The first request obtains
@@ -16,7 +19,9 @@ import java.util.Map;
 public class TrackerConnection implements Runnable{
 
 	private boolean stopped = false;
-	private TorrentInfo torrentInfo;
+	private static TorrentInfo torrentInfo;
+	private static Timer timer = new Timer();
+	private static TimerTask task;
 	
 	/**
 	 * Creates a TrackerConnection.
@@ -24,7 +29,7 @@ public class TrackerConnection implements Runnable{
 	 * @param torrentInfo - contains torrent information
 	 */
 	public TrackerConnection(TorrentInfo torrentInfo) {
-		this.torrentInfo = torrentInfo;
+		TrackerConnection.torrentInfo = torrentInfo;
 	}
 	
 	/**
@@ -35,7 +40,7 @@ public class TrackerConnection implements Runnable{
 		try {
 			URL url = makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
 					torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, null);
-			System.out.println("Request sent to tracker");
+			System.out.println("Request sent to tracker\n");
 	
 			InputStream is = url.openStream();
 			byte[] response = new byte[is.available()];
@@ -43,7 +48,7 @@ public class TrackerConnection implements Runnable{
 			is.close();
 			
 			TrackerResponse.setFields((Map) Bencoder2.decode(response));
-			System.out.println("\nTracker Response Information:");
+			System.out.println("Tracker Response Information:");
 			System.out.println("Interval: " + TrackerResponse.interval + " secs");
 			System.out.println("Minimum interval: " + TrackerResponse.minInterval + " secs");
 			System.out.println("Peers: " + TrackerResponse.peers + "\n");
@@ -54,6 +59,7 @@ public class TrackerConnection implements Runnable{
 		} catch (BencodingException e) {
 			System.err.println(e.getMessage());
 		}
+		scheduleTask();
 	}
 	
 	/**
@@ -69,7 +75,7 @@ public class TrackerConnection implements Runnable{
      * @return URL - The created URL object
      * @throws MalformedURLException - Unknown URL protocol
      */
-    private URL makeURL(String announce, byte[] peerID, int port, ByteBuffer infoHashBytes, int uploaded,
+    private static URL makeURL(String announce, byte[] peerID, int port, ByteBuffer infoHashBytes, int uploaded,
     		int downloaded, int left, String event) throws MalformedURLException {
         StringBuilder urlSb = new StringBuilder();
         urlSb.append(announce);
@@ -98,7 +104,7 @@ public class TrackerConnection implements Runnable{
      * @param hexString
      * @return String - The URL encoded hex string
      */
-    private String hexStringToURL(String hexString) {
+    private static String hexStringToURL(String hexString) {
         int length = hexString.length();
         char[] urlEncoded = new char[length + length / 2];
 
@@ -120,12 +126,39 @@ public class TrackerConnection implements Runnable{
      * @param bytes - The ByteBuffer to be converted
      * @return hexString - The hex string representation
      */
-    private String bytesToHex(ByteBuffer bytes) {
+    private static String bytesToHex(ByteBuffer bytes) {
         String hexString = "";
      
         for (int i = 0; i < bytes.capacity(); i++)
             hexString += String.format("%02X", bytes.get(i) & 0xff);
 
         return hexString;
+    }
+    
+    private static void scheduleTask() {
+    	task = new TimerTask() {
+    		public void run() {
+				try {
+					URLConnection connection = makeURL(torrentInfo.announce_url.toExternalForm(),
+							ClientInfo.PEER_ID, ClientInfo.port, torrentInfo.info_hash, ClientInfo.uploaded,
+							ClientInfo.downloaded, ClientInfo.left, null).openConnection();
+					connection.connect();
+					System.out.println("Periodic request sent to tracker\n");
+				} catch (MalformedURLException e) {
+					System.err.println("Unknown URL protocol!");
+				} catch (IOException e) {
+					System.err.println("I/O error!");
+				}
+    		}
+    	};
+    	long interval = TrackerResponse.interval;
+    	long minInterval = TrackerResponse.minInterval;
+    	long delay = ((interval - minInterval)/2 + minInterval) * 1000;
+    	timer.schedule(task, delay, delay);
+    }
+    
+    public static void resetTimer() {
+    	task.cancel();
+    	scheduleTask();
     }
 }
