@@ -12,15 +12,30 @@ public class PeerMessage {
     MessageType type;
     byte[] payload;
 
+    public int getMessageLength() {
+        return messageLength;
+    }
+
+    public MessageType getType() {
+        return type;
+    }
+
+    public byte[] getPayload() {
+        return payload;
+    }
+
+    /**
+     * constructs this peer message object as a parsed form of the full message
+     * @param fullMessage the peer message in its entirety
+     */
     public PeerMessage(byte[] fullMessage) {
 
     }
-
-
 }
 
 enum MessageType {
-    KEEPALIVE (-1),
+    KEEPALIVE (null),
+
     CHOKE(0),
     UNCHOKE(1),
     INTERESTED(2),
@@ -28,11 +43,16 @@ enum MessageType {
     HAVE(4),
     BITFIELD(5),
     REQUEST(6),
-    PIECE(7);
+    PIECE(7),
 
-    int id;
+    CHOKETOPEER(null),
+    UNCHOKETOPEER(null);
 
-    MessageType(int id) {
+
+
+    Integer id;
+
+    MessageType(Integer id) {
         this.id = id;
     }
 
