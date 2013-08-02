@@ -16,6 +16,7 @@ public class PeerConnection {
     ServerSocket serverSocketToPeer;
     PeerDownloadConnection downloadConnection;
     PeerUploadConnection uploadConnection;
+    ConnectionData data;
 
 
     public void close() throws IOException {
