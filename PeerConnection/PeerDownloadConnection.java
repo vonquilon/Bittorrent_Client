@@ -11,11 +11,13 @@ import java.util.Queue;
  * Time: 4:17 PM
  * To change this template use File | Settings | File Templates.
  */
-public class PeerDownloadConnection {
+public class PeerDownloadConnection extends Thread{
     Queue<PeerMessage> messageQueue;
     OutputStream toPeer;
+    boolean running;
 
-    public void close() throws IOException {
-
+    public void close(){
+        running = false;
+        this.interrupt();
     }
 }
