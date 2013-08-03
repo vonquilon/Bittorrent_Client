@@ -20,7 +20,7 @@ public class ClientInfo {
 	/**
 	 * The port number that the client is currently using.
 	 */
-	public static Integer port;
+	public static Integer port = null;
 	
 	/**
 	 * The number of bytes the client has uploaded.
@@ -71,7 +71,6 @@ public class ClientInfo {
      * @throws NoSuchElementException
      */
     public static void setPort() throws NoSuchElementException {
-    	port = null;
     	ServerSocket testSocket = null;
     	for(int i = 6881; i <= 6889; i++) {
     		try {
@@ -90,7 +89,7 @@ public class ClientInfo {
 				}
 			}//end finally
     	}//end for
-    	if(port.equals(null))
+    	if(port == null)
     		throw new NoSuchElementException("No available port! Free up a port between 6881 and 6889.");
     }
     
