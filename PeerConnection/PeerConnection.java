@@ -3,6 +3,7 @@ package PeerConnection;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 /**
  * Created with IntelliJ IDEA.
@@ -12,6 +13,7 @@ import java.net.Socket;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnection {
+    ArrayList<PeerConnection> peerConnections;
     Socket socketToPeer;
     ServerSocket serverSocketToPeer;
     PeerDownloadConnection downloadConnection;
@@ -33,9 +35,11 @@ public class PeerConnection {
         do {
 
         }while(serverSocketActive);
+        //we're not running anymore, so remove this connection from the list of connections
+        peerConnections.remove(this);
     }
 
-    public void close() throws IOException {
+    public void closeConnections() throws IOException {
         closeStreams();
         closeSockets();
     }

@@ -12,6 +12,7 @@ import java.util.ArrayList;
  */
 public class PeerConnectionManager extends Thread{
     ArrayList<PeerConnection> peerConnections;
+    int maximumNumberOfConnections;
 
     public void run() {
 
@@ -19,7 +20,7 @@ public class PeerConnectionManager extends Thread{
 
     public void closeAllConnections() throws IOException {
         for(PeerConnection peerConnection : peerConnections) {
-            peerConnection.close();
+            peerConnection.closeConnections();
         }
     }
 
