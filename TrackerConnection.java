@@ -18,9 +18,9 @@ import java.util.TimerTask;
  */
 public class TrackerConnection implements Runnable{
 
-	private boolean stopped = false;
 	private static TorrentInfo torrentInfo;
-	private static Timer timer = new Timer();
+	private final static Timer TIMER = new Timer();
+	private static long delay;
 	private static TimerTask task;
 	
 	/**
@@ -40,14 +40,16 @@ public class TrackerConnection implements Runnable{
 		try {
 			URL url = makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
 					torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, null);
-			System.out.println("Request sent to tracker\n");
+			System.out.println("Request sent to tracker.\n");
 	
 			InputStream is = url.openStream();
 			byte[] response = new byte[is.available()];
 			is.read(response);
 			is.close();
-			
+
 			TrackerResponse.setFields((Map) Bencoder2.decode(response));
+			delay = ((TrackerResponse.interval - TrackerResponse.minInterval)/2
+					+ TrackerResponse.minInterval) * 1000;
 			System.out.println("Tracker Response Information:");
 			System.out.println("Interval: " + TrackerResponse.interval + " secs");
 			System.out.println("Minimum interval: " + TrackerResponse.minInterval + " secs");
@@ -55,7 +57,7 @@ public class TrackerConnection implements Runnable{
 		} catch (MalformedURLException e) {
 			System.err.println("Unknown URL protocol!");
 		} catch (IOException e) {
-			System.err.println("I/O error!");
+			System.err.println("Could not contact tracker.");
 		} catch (BencodingException e) {
 			System.err.println(e.getMessage());
 		}
@@ -135,6 +137,9 @@ public class TrackerConnection implements Runnable{
         return hexString;
     }
     
+    /**
+     * Schedules a task that periodically contacts the tracker.
+     */
     private static void scheduleTask() {
     	task = new TimerTask() {
     		public void run() {
@@ -143,22 +148,30 @@ public class TrackerConnection implements Runnable{
 							ClientInfo.PEER_ID, ClientInfo.port, torrentInfo.info_hash, ClientInfo.uploaded,
 							ClientInfo.downloaded, ClientInfo.left, null).openConnection();
 					connection.connect();
-					System.out.println("Periodic request sent to tracker\n");
+					System.out.println("Periodic request sent to tracker.\n");
 				} catch (MalformedURLException e) {
 					System.err.println("Unknown URL protocol!");
 				} catch (IOException e) {
-					System.err.println("I/O error!");
+					System.err.println("Could not contact tracker.");
 				}
     		}
     	};
-    	long interval = TrackerResponse.interval;
-    	long minInterval = TrackerResponse.minInterval;
-    	long delay = ((interval - minInterval)/2 + minInterval) * 1000;
-    	timer.schedule(task, delay, delay);
+    	TIMER.schedule(task, delay, delay);
     }
     
+    /**
+     * Resets the task that periodically contacts the tracker. It contacts the tracker
+     * every (interval - min interval)/2 + min interval seconds.
+     */
     public static void resetTimer() {
-    	task.cancel();
+    	task.cancel(); TIMER.purge();
     	scheduleTask();
+    }
+    
+    /**
+     * Cancels the task that periodically contacts the tracker.
+     */
+    public void cancelTimer() {
+    	task.cancel(); TIMER.cancel();
     }
 }

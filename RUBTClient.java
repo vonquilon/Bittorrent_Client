@@ -7,8 +7,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.NoSuchElementException;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -30,8 +35,12 @@ public class RUBTClient {
 	private JFrame frame;
 	private JTextArea textArea;
 	private JPanel bottomPanel;
-	private JButton start, pause, exit;
+	private JButton start, exit;
+	private JLabel program, progress, rateLabel, rate;
 	private String torrentName, fileName;
+	private boolean started = false;
+	TorrentInfo torrentInfo = null;
+	private TrackerConnection trackerConnection = null;
 	
 	/**
 	 * Creates a RUBTClient with the specified torrent file name and the
@@ -43,46 +52,49 @@ public class RUBTClient {
 	public RUBTClient(String torrentName, String fileName) {
 		frame = new JFrame("RUBTClient");
 		textArea = new JTextArea(30, 50);
-		bottomPanel = new JPanel(new BorderLayout());
+		bottomPanel = new JPanel();
 		createStartButton();
-		createPauseButton();
 		createExitButton();
+		program = new JLabel("Program: ");
+		progress = new JLabel("Not started"); progress.setPreferredSize(new Dimension(100, 10));
+		rateLabel = new JLabel("Rate: ");
+		rate = new JLabel();
 		
 		this.torrentName = torrentName;
 		this.fileName = fileName;
 	}
 
 	/**
-	 * Creates a start button that when pressed will start the process of downloading a file
-	 * from a torrent.
+	 * Creates a start/pause button that when pressed will start the process of downloading a file
+	 * from a torrent and when pressed again, will pause the program.
 	 */
 	private void createStartButton() {
-    	start = new JButton("Start"); 
+    	start = new JButton(new ImageIcon("pause_start icon.png")); 
     	start.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-            	try {
-            		ClientInfo.setPort();
-            		System.out.println("Using port: " + ClientInfo.port + "\n");
-            		TorrentInfo torrentInfo = TorrentParser.parseTorrent(torrentName);
-            		ClientInfo.setLeft(torrentInfo.file_length);
-            		new Thread(new TrackerConnection(torrentInfo)).start();
-            	} catch (NoSuchElementException exception) {
-            		System.err.println(exception.getMessage() + "\n");
-            	}
-            }
-        });
-    }
-	
-	/**
-	 * Creates a pause button that when pressed will pause the client's progress.
-	 */
-	private void createPauseButton() {
-    	pause = new JButton("Pause");
-    	pause.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed( ActionEvent e ) {
+            	if(!started) {
+            		started = true; progress.setText("Started");
+            		try {
+            			if(ClientInfo.port == null) {
+            				ClientInfo.setPort();
+            				System.out.println("Using port: " + ClientInfo.port + "\n");
+            			}
+            		} catch (NoSuchElementException exception) {
+            			System.err.println(exception.getMessage() + "\n");
+            		}
             	
+            		if(torrentInfo == null) {
+            			torrentInfo = TorrentParser.parseTorrent(torrentName);
+            			ClientInfo.setLeft(torrentInfo.file_length);
+            		}
+            		if(trackerConnection == null) {
+            			trackerConnection = new TrackerConnection(torrentInfo);
+            			new Thread(trackerConnection).start();
+            		}
+            	} else {
+            		started = false; progress.setText("Paused");
+            	}
             }
         });
     }
@@ -92,10 +104,12 @@ public class RUBTClient {
 	 * open connections, closes frame processes, and exits the program.
 	 */
 	private void createExitButton() {
-    	exit = new JButton("Exit");
+    	exit = new JButton(new ImageIcon("exit icon.png"));
     	exit.addActionListener(new ActionListener() {
             @Override
-            public void actionPerformed( ActionEvent e ) {
+            public void actionPerformed(ActionEvent e) {
+            	if(trackerConnection != null)
+            		trackerConnection.cancelTimer();
             	frame.dispose();
             	System.exit(0);
             }
@@ -123,13 +137,17 @@ public class RUBTClient {
 		textArea.append(" *  Welcome to RUBTClient!\n");
 		textArea.append(" */\n\n");
 		
-		start.setPreferredSize(new Dimension(200, 20));
-		pause.setPreferredSize(new Dimension(200, 20));
-		exit.setPreferredSize(new Dimension(200, 20));
-		
-		bottomPanel.add(start, BorderLayout.LINE_START);
-		bottomPanel.add(pause, BorderLayout.CENTER);
-		bottomPanel.add(exit, BorderLayout.LINE_END);
+		bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.LINE_AXIS));
+		bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+		bottomPanel.add(Box.createHorizontalGlue());
+		bottomPanel.add(program);
+		bottomPanel.add(progress);
+		bottomPanel.add(rateLabel);
+		bottomPanel.add(rate);
+		bottomPanel.add(Box.createRigidArea(new Dimension(180, 0)));
+		bottomPanel.add(start);
+		bottomPanel.add(Box.createRigidArea(new Dimension(10, 0)));
+		bottomPanel.add(exit);
 		frame.getContentPane().add(bottomPanel, BorderLayout.PAGE_END);
 		
 		frame.pack();
