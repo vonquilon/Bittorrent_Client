@@ -21,8 +21,10 @@ public class ConnectionData {
 
     public ConnectionData(String ip) {
         peerIP = ip;
-        downloadSpeed = -1;
-        uploadSpeed = -1;
+        bytesDownloaded = 0;
+        timeToDownload = 0;
+        bytesUploaded = 0;
+        timeToUpload = 0;
     }
 
 }
