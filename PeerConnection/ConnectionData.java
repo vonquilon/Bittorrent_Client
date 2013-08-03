@@ -14,4 +14,12 @@ public class ConnectionData {
     float uploadSpeed;
 
     boolean[] peerBitfield;
+
+    public ConnectionData(String ip) {
+        peerIP = ip;
+        downloadSpeed = -1;
+        uploadSpeed = -1;
+
+    }
+
 }

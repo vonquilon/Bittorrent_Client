@@ -10,8 +10,12 @@ import java.util.ArrayList;
  * Time: 4:16 PM
  * To change this template use File | Settings | File Templates.
  */
-public class PeerConnectionManager {
+public class PeerConnectionManager extends Thread{
     ArrayList<PeerConnection> peerConnections;
+
+    public void run() {
+
+    }
 
     public void closeAllConnections() throws IOException {
         for(PeerConnection peerConnection : peerConnections) {

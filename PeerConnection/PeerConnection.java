@@ -17,7 +17,26 @@ public class PeerConnection {
     PeerDownloadConnection downloadConnection;
     PeerUploadConnection uploadConnection;
     ConnectionData data;
+    boolean serverSocketActive;
 
+    public PeerConnection(Socket socketToPeer) {
+        this.socketToPeer = socketToPeer;
+        this.serverSocketToPeer = null;
+        this.downloadConnection = null;
+        this.uploadConnection = null;
+        this.data = new ConnectionData();
+    }
+
+    public PeerConnection() {
+        serverSocketActive = serverSocketToPeer != null;
+    }
+
+
+    public void run() {
+        do {
+
+        }while(serverSocketActive);
+    }
 
     public void close() throws IOException {
         closeStreams();
