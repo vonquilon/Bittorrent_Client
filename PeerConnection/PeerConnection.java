@@ -24,10 +24,7 @@ public class PeerConnection {
         this.serverSocketToPeer = null;
         this.downloadConnection = null;
         this.uploadConnection = null;
-        this.data = new ConnectionData();
-    }
-
-    public PeerConnection() {
+        this.data = new ConnectionData(socketToPeer.getInetAddress().toString());
         serverSocketActive = serverSocketToPeer != null;
     }
 
@@ -41,7 +38,6 @@ public class PeerConnection {
     public void close() throws IOException {
         closeStreams();
         closeSockets();
-
     }
 
     private void closeStreams() throws IOException {

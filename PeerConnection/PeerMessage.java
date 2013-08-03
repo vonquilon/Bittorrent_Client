@@ -29,7 +29,9 @@ public class PeerMessage {
      * @param fullMessage the peer message in its entirety
      */
     public PeerMessage(byte[] fullMessage) {
-
+        byte[] messageLengthBytes;
+        int id;
+        byte[] payload;
     }
 }
 

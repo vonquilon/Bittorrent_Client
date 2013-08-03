@@ -18,6 +18,5 @@ public class PeerDownloadConnection extends Thread{
 
     public void close(){
         running = false;
-        this.interrupt();
     }
 }

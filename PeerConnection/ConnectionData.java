@@ -10,8 +10,12 @@ package PeerConnection;
 public class ConnectionData {
     String peerIP;
 
-    float downloadSpeed;
-    float uploadSpeed;
+    int bytesDownloaded;
+    int timeToDownload;
+
+    int bytesUploaded;
+    int timeToUpload;
+
 
     boolean[] peerBitfield;
 
@@ -19,7 +23,6 @@ public class ConnectionData {
         peerIP = ip;
         downloadSpeed = -1;
         uploadSpeed = -1;
-
     }
 
 }
