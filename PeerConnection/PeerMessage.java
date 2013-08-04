@@ -107,10 +107,15 @@ enum MessageType {
     CHOKETOPEER((byte)8),
     UNCHOKETOPEER((byte)9);
 
+
     public static final MessageType[] peerMessagesWithID = new MessageType[]{CHOKE,UNCHOKE,INTERESTED,UNINTERESTED,HAVE,BITFIELD,REQUEST,PIECE};
 
     Byte id;
 
+    /**
+     * constructor for enum objects; the id is this message's encoded id
+     * @param id
+     */
     MessageType(Byte id) {
         this.id = id;
     }
@@ -134,7 +139,7 @@ enum MessageType {
     /**
      * encodes this message from a MessageType object into the byte id of the corresponding message
      * @param type the type of the message to encode
-     * @return the id of the message as in
+     * @return the id of the message
      */
     public static byte encode(MessageType type) {
        if(type.id == null) {

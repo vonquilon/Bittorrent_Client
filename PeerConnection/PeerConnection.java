@@ -13,7 +13,9 @@ import java.util.ArrayList;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnection {
+    //all of the active peerconnections; when a connection dies, it's expected to remove itself from this list
     ArrayList<PeerConnection> peerConnections;
+    //the socket connected to the peer; is expected to be not null for
     Socket socketToPeer;
     ServerSocket serverSocketToPeer;
     PeerDownloadConnection downloadConnection;
@@ -21,6 +23,10 @@ public class PeerConnection {
     ConnectionData data;
     boolean serverSocketActive;
 
+    /**
+     * constructs this peer connection as a socket that we connected to a peer ourselves
+     * @param socketToPeer the socket to the peer
+     */
     public PeerConnection(Socket socketToPeer) {
         this.socketToPeer = socketToPeer;
         this.serverSocketToPeer = null;
@@ -33,7 +39,6 @@ public class PeerConnection {
 
     public void run() {
         do {
-
         }while(serverSocketActive);
         //we're not running anymore, so remove this connection from the list of connections
         peerConnections.remove(this);
