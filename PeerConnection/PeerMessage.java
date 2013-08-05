@@ -125,6 +125,16 @@ enum MessageType {
      * @param fullMessage the message to decode in its entirety
      * @return the type of this message as a MessageType
      */
+    public static MessageType decode(PeerMessage peerMessage) {
+        return decode(peerMessage.rawMessage);
+    }
+
+
+    /**
+     * decodes this message into a MessageType enum describing what type of message this is
+     * @param fullMessage the message to decode in its entirety
+     * @return the type of this message as a MessageType
+     */
     public static MessageType decode(byte[] fullMessage) {
         if(fullMessage.length == 4) {
             return KEEPALIVE;

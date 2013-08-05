@@ -15,7 +15,7 @@ import java.util.ArrayList;
 public class PeerConnection {
     //all of the active peerconnections; when a connection dies, it's expected to remove itself from this list
     ArrayList<PeerConnection> peerConnections;
-    //the socket connected to the peer; is expected to be not null for
+    //the socket connected to the peer
     Socket socketToPeer;
     ServerSocket serverSocketToPeer;
     PeerDownloadConnection downloadConnection;
