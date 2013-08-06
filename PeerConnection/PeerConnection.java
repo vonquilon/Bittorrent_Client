@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
@@ -50,8 +51,8 @@ public class PeerConnection {
         if(createdFromServerSocket) {
             try {
                 serverSocketChannel = ServerSocketChannel.open();
-                serverSocketChannel.socket().bind(new InetSocketAddress(hostPort));
                 serverSocketChannel.configureBlocking(false);
+                serverSocketChannel.socket().bind(new InetSocketAddress(hostPort));
             } catch (IOException e) {
                 System.err.println("Warning: unable to create server socket for port " + hostPort + ".");
                 return;
@@ -59,15 +60,34 @@ public class PeerConnection {
             while(!closed && socketChannel == null) {
                 try {
                     socketChannel = serverSocketChannel.accept();
+                    socketChannel.configureBlocking(false);
                 } catch (IOException e) {
                     System.err.println("Warning: unable to connect server socket on port " + hostPort + " to a peer.");
                     return;
                 }
             }
         }
+        else {
+            try {
+                socketChannel = SocketChannel.open();
+                socketChannel.configureBlocking(false);
+                while(!closed && !socketChannel.finishConnect()) {
+                    socketChannel.connect(new InetSocketAddress(peerIPAddress,peerPort));
+                }
+            } catch (IOException e) {
+                System.err.println("Warning: unable to open or connect socket channel to "+ peerIPAddress + ":" + peerPort + ".");
+                return;
+            }
+
+        }
 
         while(!closed) {
-
+            ByteBuffer readBuffer = ByteBuffer.allocate(4);
+            try {
+                socketChannel.read(readBuffer);
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
         }
     }
 }
