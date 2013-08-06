@@ -3,6 +3,7 @@ package PeerConnection;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 
 /**
@@ -13,57 +14,33 @@ import java.util.ArrayList;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnection {
-    //all of the active peerconnections; when a connection dies, it's expected to remove itself from this list
-    ArrayList<PeerConnection> peerConnections;
-    //the socket connected to the peer
-    Socket socketToPeer;
-    ServerSocket serverSocketToPeer;
-    PeerDownloadConnection downloadConnection;
-    PeerUploadConnection uploadConnection;
-    ConnectionData data;
-    boolean serverSocketActive;
+    ArrayList<PeerConnection> activeConnections;
 
-    /**
-     * constructs this peer connection as a socket that we connected to a peer ourselves
-     * @param socketToPeer the socket to the peer
-     */
-    public PeerConnection(Socket socketToPeer) {
-        this.socketToPeer = socketToPeer;
-        this.serverSocketToPeer = null;
-        this.downloadConnection = null;
-        this.uploadConnection = null;
-        this.data = new ConnectionData(socketToPeer.getInetAddress().toString());
-        serverSocketActive = serverSocketToPeer != null;
+    String peerIPAddress;
+    int peerPort;
+    int hostPort;
+
+    boolean closed;
+
+
+    public PeerConnection(String peerIPAddress, int peerPort, ArrayList<PeerConnection> activeConnections) {
+        hostPort = 0;
+
+        this.peerPort = peerPort;
+        this.peerIPAddress = peerIPAddress;
+        this.activeConnections = activeConnections;
     }
 
+    public PeerConnection(int hostPort, ArrayList<PeerConnection> activeConnections) {
+        this.hostPort = hostPort;
+
+        this.activeConnections = activeConnections;
+    }
 
     public void run() {
-        do {
-        }while(serverSocketActive);
-        //we're not running anymore, so remove this connection from the list of connections
-        peerConnections.remove(this);
-    }
 
-    public void closeConnections() throws IOException {
-        closeStreams();
-        closeSockets();
-    }
+        while(!closed) {
 
-    private void closeStreams() throws IOException {
-        if(downloadConnection != null) {
-            downloadConnection.close();
-        }
-        if(uploadConnection != null) {
-            uploadConnection.close();
-        }
-    }
-
-    private void closeSockets() throws IOException {
-        if(serverSocketToPeer != null && !serverSocketToPeer.isClosed()) {
-            serverSocketToPeer.close();
-        }
-        if(socketToPeer != null && !socketToPeer.isClosed()) {
-            socketToPeer.close();
         }
     }
 }

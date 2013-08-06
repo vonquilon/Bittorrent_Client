@@ -12,7 +12,6 @@ import java.util.ArrayList;
  */
 public class PeerConnectionManager extends Thread{
     ArrayList<PeerConnection> peerConnections;
-    int maximumNumberOfConnections;
 
     public void run() {
 
