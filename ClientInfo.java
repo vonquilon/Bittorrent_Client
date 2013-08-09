@@ -1,5 +1,9 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
+import java.net.URL;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
@@ -16,6 +20,11 @@ public class ClientInfo {
 	 * The client's current 20 bytes peer ID.
 	 */
 	public final static byte[] PEER_ID = generatePeerID();
+	
+	/**
+	 * The client's external IP address.
+	 */
+	public final static String IPAddress = getIP(); 
 	
 	/**
 	 * The port number that the client is currently using.
@@ -61,6 +70,19 @@ public class ClientInfo {
             peerID[i] = (byte) (randomGenerator.nextInt(25) + 97);
 
         return peerID;
+    }
+    
+    private static String getIP() {
+    	try {
+    		URL IP = new URL("http://checkip.amazonaws.com");
+    		BufferedReader in = new BufferedReader(new InputStreamReader(IP.openStream()));
+			return in.readLine();
+		} catch (MalformedURLException e) {
+			System.out.println("Bad URL!");
+		} catch (IOException e) {
+			System.out.println("Could not get client's IP address.");
+		}
+		return null;
     }
     
     /**
