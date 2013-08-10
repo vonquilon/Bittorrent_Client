@@ -24,7 +24,7 @@ public class ClientInfo {
 	/**
 	 * The client's external IP address.
 	 */
-	public final static String IPAddress = getIP(); 
+	public static String IPAddress = null; 
 	
 	/**
 	 * The port number that the client is currently using.
@@ -72,17 +72,16 @@ public class ClientInfo {
         return peerID;
     }
     
-    private static String getIP() {
+    public static void setIP() {
     	try {
     		URL IP = new URL("http://checkip.amazonaws.com");
     		BufferedReader in = new BufferedReader(new InputStreamReader(IP.openStream()));
-			return in.readLine();
+			IPAddress = in.readLine();
 		} catch (MalformedURLException e) {
 			System.out.println("Bad URL!");
 		} catch (IOException e) {
 			System.out.println("Could not get client's IP address.");
 		}
-		return null;
     }
     
     /**
