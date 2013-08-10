@@ -6,7 +6,9 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -41,6 +43,7 @@ public class RUBTClient {
 	private boolean started = false;
 	TorrentInfo torrentInfo = null;
 	private TrackerConnection trackerConnection = null;
+	private ConnectionManager connection = null;
 	
 	/**
 	 * Creates a RUBTClient with the specified torrent file name and the
@@ -87,10 +90,15 @@ public class RUBTClient {
             		if(torrentInfo == null) {
             			torrentInfo = TorrentParser.parseTorrent(torrentName);
             			ClientInfo.setLeft(torrentInfo.file_length);
+            			Message.setHandshake(torrentInfo.info_hash);
             		}
             		if(trackerConnection == null) {
             			trackerConnection = new TrackerConnection(torrentInfo);
             			new Thread(trackerConnection).start();
+            		}
+            		if(connection == null) {
+            			connection = new ConnectionManager(torrentInfo);
+            			new Thread(connection).start();
             		}
             	} else {
             		started = false; progress.setText("Paused");

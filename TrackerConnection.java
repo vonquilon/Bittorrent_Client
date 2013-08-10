@@ -38,12 +38,16 @@ public class TrackerConnection implements Runnable{
 	@SuppressWarnings("rawtypes")
 	public void run() {
 		try {
+			ClientInfo.setIP();
+			
 			URL url = makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
 					torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, null);
 			System.out.println("Request sent to tracker.\n");
-	
+
 			InputStream is = url.openStream();
-			byte[] response = new byte[is.available()];
+			int size;
+			while((size = is.available()) == 0);
+			byte[] response = new byte[size];
 			is.read(response);
 			is.close();
 
