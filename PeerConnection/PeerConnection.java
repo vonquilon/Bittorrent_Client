@@ -18,7 +18,7 @@ import java.util.*;
  */
 public class PeerConnection {
     boolean hosting;
-    ArrayList<PeerConnection> activeConnections;
+    final ArrayList<PeerConnection> activeConnections;
     final Queue<PeerAction> queuedActions;
 
     String peerIPAddress;
@@ -32,6 +32,7 @@ public class PeerConnection {
 
 
     boolean closed;
+    boolean paused;
 
 
     public PeerConnection(String peerIPAddress, int peerPort, ArrayList<PeerConnection> activeConnections) {
@@ -42,6 +43,7 @@ public class PeerConnection {
         this.activeConnections = activeConnections;
 
         hosting = false;
+        paused = false;
         queuedActions = new LinkedList<PeerAction>();
     }
 
@@ -53,6 +55,7 @@ public class PeerConnection {
         this.activeConnections = activeConnections;
 
         hosting = true;
+        paused = false;
         queuedActions = new LinkedList<PeerAction>();
     }
 
@@ -72,17 +75,62 @@ public class PeerConnection {
 
         reader.setBufferLength(4);
         while (!closed) {
+            if(paused) {
+                System.out.println("Pausing connection to " + peerIPAddress + ".");
+                while(paused) {
 
+                }
+            }
+
+            //code for acting upon an action the manager or another peer has told us to do
             PeerAction receivedAction;
+            synchronized (queuedActions) {
+                receivedAction = queuedActions.poll();
+            }
+            if(receivedAction != null) {
+                try {
+                    switch (receivedAction.code) {
+                        case CHOKEPEER:
+                            byte[] length = intToBytes(1);
+                            byte[] idBytes = new byte[]{0};
+                            byte[] chokeMessage = concat(length,idBytes);
+                            writer.putBytes(chokeMessage);
+                            break;
+                        case UNCHOKEPEER:
+                            length = intToBytes(1);
+                            idBytes = new byte[]{1};
+                            byte[] unchokeMessage = concat(length, idBytes);
+                            writer.putBytes(unchokeMessage);
+                            break;
+                        case REQUESTPIECE:
+                            int index = receivedAction.argument;
+
+                            //TODO: get length from options
+                            break;
+                        case BROADCASTHAVE:
+                            index = receivedAction.argument;
+
+                            length = intToBytes(5);
+                            idBytes = new byte[]{};
+                            byte[] indexBytes = intToBytes(index);
+                            byte[] haveMessage = concat(length, idBytes, indexBytes);
+                            writer.putBytes(haveMessage);
+                            break;
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
 
             //code for parsing the read data from the peer and acting upon it
             if (messageData != null) {
-                int index;
 
                 byte[] messageIDBytes = subarray(messageData,0,1);
                 byte messageID = messageIDBytes[0];
                 byte[] payload = subarray(messageData,1,messageData.length);
                 switch (messageID) {
+                    //TODO: finish message switching logic
                     case 0://choke
                         peerChokingHost = true;
                         break;
@@ -96,13 +144,31 @@ public class PeerConnection {
                         peerInterestedHost = false;
                         break;
                     case 4://have
-                        index = bytesToInt(payload);
+                        int index = bytesToInt(payload);
                         break;
                     case 5://bitfield
 
                         break;
                     case 6://request
                         if(!hostChokingPeer && peerInterestedHost) {
+                            //break up the payload
+                            byte[] indexBytes = subarray(payload,0,4);
+                            byte[] beginBytes = subarray(payload,4,8);
+                            byte[] lengthBytes = subarray(payload,8,12);
+
+                            index = bytesToInt(indexBytes);
+                            int begin = bytesToInt(beginBytes);
+                            int length = bytesToInt(lengthBytes);
+
+                            //if requested length > 2^15, then close the connection
+                            if(length > Math.pow(2,15)) {
+                                System.out.println("Requested piece size from " + peerIPAddress + " was too large: " + length + ". Closing connection.");
+                                closed = true;
+                            }
+
+                            //get the requested data
+
+                            //send piece message with requested data
 
                         }
 
@@ -119,6 +185,11 @@ public class PeerConnection {
                         //write data to file
 
                         //tell all peers to broadcast have message
+                        synchronized (activeConnections) {
+                            for(PeerConnection peerConnection : activeConnections) {
+                                peerConnection.addAction(new PeerAction(PeerActionCode.BROADCASTHAVE,index));
+                            }
+                        }
 
                         break;
                 }
@@ -148,6 +219,13 @@ public class PeerConnection {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            }
+
+            //code for writing data to the peer
+            try {
+                writer.write(socketChannel);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
@@ -336,6 +414,10 @@ public class PeerConnection {
         buffer.putInt(value);
         return buffer.array();
     }
+
+    public void addAction(PeerAction action) {
+        queuedActions.offer(action);
+    }
 }
 
 
@@ -394,6 +476,9 @@ class DataWriter {
      */
     public boolean write(SocketChannel socketChannel) throws IOException {
         if(finishedWriting) {
+            if(messageQueue.isEmpty()) {
+                return true;
+            }
             byte[] currentMessage = messageQueue.poll();
             data = ByteBuffer.wrap(currentMessage);
         }
