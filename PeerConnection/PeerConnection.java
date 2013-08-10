@@ -376,6 +376,7 @@ class DataReader {
 class DataWriter {
     Queue<byte[]> messageQueue;
     private ByteBuffer data;
+    boolean finishedWriting = true;
 
     DataWriter() {
         messageQueue = new LinkedList<byte[]>();
@@ -385,13 +386,27 @@ class DataWriter {
         messageQueue.add(bytes);
     }
 
+    /**
+     * method that writes inputted data into a socket channel
+     * @param socketChannel the socket channel to write to
+     * @return true if able to input all data, false if still in progress
+     * @throws IOException
+     */
     public boolean write(SocketChannel socketChannel) throws IOException {
-        byte[] currentMessage = messageQueue.poll();
-        data = ByteBuffer.wrap(currentMessage);
+        if(finishedWriting) {
+            byte[] currentMessage = messageQueue.poll();
+            data = ByteBuffer.wrap(currentMessage);
+        }
         socketChannel.write(data);
-        if(data.hasRemaining() || !messageQueue.isEmpty()) {
+        if(data.hasRemaining()) {
+            finishedWriting = false;
             return false;
         }
+        if(!messageQueue.isEmpty()) {
+            finishedWriting = true;
+            return false;
+        }
+        finishedWriting = true;
         return true;
     }
 }
