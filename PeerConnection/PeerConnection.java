@@ -1,5 +1,6 @@
 package PeerConnection;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -7,6 +8,8 @@ import java.nio.ByteOrder;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Created with IntelliJ IDEA.
@@ -22,6 +25,12 @@ public class PeerConnection {
     String peerIPAddress;
     int peerPort;
     int hostPort;
+
+    boolean hostChokingPeer = true;
+    boolean peerChokingHost = true;
+    boolean hostInterestedPeer = false;
+    boolean peerInterestedHost = false;
+
 
     boolean closed;
 
@@ -51,29 +60,144 @@ public class PeerConnection {
         if(socketChannel == null) {
             return;
         }
+        //if(handshakeWithPeer(socketChannel))
+
         DataReader reader = new DataReader();
         DataWriter writer = new DataWriter();
 
         boolean readInLength = false;
+        boolean readInData = false;
         int messageLength = 0;
+        int messageID = 0;
+        byte[] messagePayload = null;
 
+        reader.setBufferLength(4);
         while(!closed) {
             if(readInLength) {
-                reader.setBufferLength(messageLength);
-                readInLength = false;
-            }
-            else {
-                reader.setBufferLength(4);
                 try {
                     if(reader.read(socketChannel)) {
-
-                        readInLength = true;
+                        messageID = reader.getInt();
+                        messagePayload = reader.getBytes();
+                        readInLength = false;
+                        readInData = true;
+                        readInLength = false;
+                        reader.setBufferLength(4);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
+            else {
+                try {
+                    if(reader.read(socketChannel)) {
+                        messageLength = reader.getInt();
+                        readInLength = true;
+                        reader.setBufferLength(messageLength);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            switch(messageID) {
+                case 0:
+                    peerChokingHost = true;
+                    break;
+                case 1:
+                    peerChokingHost = false;
+                    break;
+                case 2:
+                    peerInterestedHost = true;
+                    break;
+                case 3:
+                    peerInterestedHost = false;
+                    break;
+            }
         }
+
+    }
+
+    private boolean handshakeWithPeer(SocketChannel socketChannel, byte[] sha1Hash, byte[] myPeerID, byte[] peerPeerID, BitSet myBitfield) throws IOException {
+        byte[] byte19 = new byte[]{19};
+        byte[] bitTorrentHeader = "BitTorrent Protocol".getBytes();
+        byte[] reservedBytes = new byte[8];
+        Arrays.fill(reservedBytes,(byte)0);
+        byte[] handshakeMessage = concat(byte19,bitTorrentHeader,reservedBytes,sha1Hash,myPeerID);
+
+        int bitfieldLength = (myBitfield.length()+7)/8 + 1;
+        byte[] bitfieldLengthBytes = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(bitfieldLength).array();
+        byte[] bitfieldID = new byte[]{5};
+        byte[] bitfieldBytes = myBitfield.toByteArray();
+        byte[] bitfieldMessage = concat(bitfieldLengthBytes,bitfieldID,bitfieldBytes);
+
+        ByteBuffer buffer;
+
+        if(hosting) {
+            //wait for handshake, then send out our handshake and bitfield
+
+            //wait for handshake
+            buffer = ByteBuffer.allocate(68);
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.read(buffer);
+            }
+            buffer.flip();
+            byte[] handshakeFromPeer = new byte[68];
+            buffer.put(handshakeFromPeer);
+            if(!verifyHandshake(handshakeFromPeer)) {
+                return false;
+            }
+
+            //send out handshake
+            buffer.clear();
+            buffer.put(handshakeMessage);
+            buffer.flip();
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.write(buffer);
+            }
+
+            //send out bitfield
+            buffer = ByteBuffer.allocate(bitfieldLength+4);
+            buffer.clear();
+            buffer.put(bitfieldMessage);
+            buffer.flip();
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.write(buffer);
+            }
+
+        }
+        else {
+            //send out our handshake, then wait for handshake, then send bitfield
+
+            //send out handshake
+            buffer = ByteBuffer.allocate(68);
+            buffer.put(handshakeMessage);
+            buffer.flip();
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.write(buffer);
+            }
+
+            //wait for handshake
+            buffer.clear();
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.read(buffer);
+            }
+            buffer.flip();
+            byte[] handshakeFromPeer = new byte[68];
+            buffer.put(handshakeFromPeer);
+            if(!verifyHandshake(handshakeFromPeer)) {
+                return false;
+            }
+
+            //send out bitfield
+            buffer = ByteBuffer.allocate(bitfieldLength+4);
+            buffer.clear();
+            buffer.put(bitfieldMessage);
+            buffer.flip();
+            while(!closed && buffer.hasRemaining()) {
+                socketChannel.write(buffer);
+            }
+        }
+
+
 
     }
 
@@ -125,6 +249,20 @@ public class PeerConnection {
         }
         return socketChannel;
     }
+
+    /**
+     * Helper function to concatenate a list of byte arrays
+     * @param args list of byte arrays to concatenate
+     * @return the concatenated byte arrays
+     * @throws IOException
+     */
+    private byte[] concat(byte[]... args) throws IOException {
+        ByteArrayOutputStream builder = new ByteArrayOutputStream();
+        for(byte[] arg : args) {
+            builder.write(arg);
+        }
+        return builder.toByteArray();
+    }
 }
 
 
@@ -138,8 +276,8 @@ class DataReader {
 
     /**
      * Method to read data from a socket channel
-     * @param socketChannel
-     * @return
+     * @param socketChannel socket connected to a peer
+     * @return true if able to read the allocated length's worth of byte data or false if not
      * @throws IOException
      */
     public boolean read(SocketChannel socketChannel) throws IOException {
@@ -147,16 +285,17 @@ class DataReader {
         if(data.hasRemaining()) {
             return false;
         }
+        data.flip();
         return true;
     }
 
-    public byte[] getDataAsByteArray() {
+    public byte[] getBytes() {
         byte[] readData = new byte[data.position()];
         data.get(readData);
         return readData;
     }
 
-    public int getDataAsInt() {
+    public int getInt() {
         return data.order(ByteOrder.BIG_ENDIAN).getInt();
     }
 }
