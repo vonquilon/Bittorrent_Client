@@ -74,6 +74,7 @@ public class PeerConnection {
         reader.setBufferLength(4);
         while(!closed) {
             if(readInLength) {
+                //if we've read in the length bytes already, then read the rest of the message
                 try {
                     if(reader.read(socketChannel)) {
                         messageID = reader.getInt();
@@ -88,6 +89,7 @@ public class PeerConnection {
                 }
             }
             else {
+                //if we haven't, then read the length (first 4 bytes)
                 try {
                     if(reader.read(socketChannel)) {
                         messageLength = reader.getInt();
@@ -110,6 +112,17 @@ public class PeerConnection {
                     break;
                 case 3:
                     peerInterestedHost = false;
+                    break;
+                case 4:
+
+                    break;
+                case 5:
+
+                    break;
+                case 6:
+
+                    break;
+                case 7:
                     break;
             }
         }
@@ -142,7 +155,7 @@ public class PeerConnection {
             buffer.flip();
             byte[] handshakeFromPeer = new byte[68];
             buffer.put(handshakeFromPeer);
-            if(!verifyHandshake(handshakeFromPeer)) {
+            if(!verifyHandshake(handshakeFromPeer, sha1Hash, peerPeerID)) {
                 return false;
             }
 
@@ -183,7 +196,7 @@ public class PeerConnection {
             buffer.flip();
             byte[] handshakeFromPeer = new byte[68];
             buffer.put(handshakeFromPeer);
-            if(!verifyHandshake(handshakeFromPeer)) {
+            if(!verifyHandshake(handshakeFromPeer, sha1Hash, peerPeerID)) {
                 return false;
             }
 
@@ -196,9 +209,24 @@ public class PeerConnection {
                 socketChannel.write(buffer);
             }
         }
+        return true;
+    }
 
-
-
+    private boolean verifyHandshake(byte[] handshakeFromPeer, byte[] sha1Hash, byte[] peerPeerID) {
+        for(int i = 0; i < 20; i++) {
+            if(handshakeFromPeer[i+28] != sha1Hash[i]) {
+                return false;
+            }
+        }
+        if(peerPeerID == null) {
+            return true;
+        }
+        for(int i = 0; i < 20; i++) {
+            if(peerPeerID[i] != handshakeFromPeer[i+48]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -238,6 +266,7 @@ public class PeerConnection {
         }
         else {
             try {
+                //connect this socket channel to the address 
                 socketChannel = SocketChannel.open();
                 socketChannel.configureBlocking(false);
                 while(!closed && !socketChannel.finishConnect()) {
@@ -263,6 +292,25 @@ public class PeerConnection {
         }
         return builder.toByteArray();
     }
+
+    private byte[] subarray(byte[] original, int to, int from) {
+        byte[] newArray = new byte[from-to];
+        System.arraycopy(original, to, newArray, to - to, from - to);
+        return newArray;
+    }
+
+    private int bytesToInt(byte[] b) {
+        ByteBuffer buffer = ByteBuffer.wrap(b);
+        buffer.order(ByteOrder.BIG_ENDIAN);
+        return buffer.getInt();
+    }
+
+    private byte[] intToBytes(int i) {
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        buffer.order(ByteOrder.BIG_ENDIAN);
+        buffer.putInt(i);
+        return buffer.array();
+    }
 }
 
 
@@ -271,7 +319,7 @@ class DataReader {
     private ByteBuffer data;
 
     public void setBufferLength(int length) {
-        data = ByteBuffer.allocate(length);
+        data = ByteBuffer.allocate(length).order(ByteOrder.BIG_ENDIAN);
     }
 
     /**
@@ -296,7 +344,7 @@ class DataReader {
     }
 
     public int getInt() {
-        return data.order(ByteOrder.BIG_ENDIAN).getInt();
+        return data.getInt();
     }
 }
 
