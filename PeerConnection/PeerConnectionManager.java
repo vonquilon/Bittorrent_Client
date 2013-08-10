@@ -11,16 +11,13 @@ import java.util.ArrayList;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnectionManager extends Thread{
-    ArrayList<PeerConnection> peerConnections;
+    ArrayList<PeerConnection> activeConnections;
 
     public void run() {
 
     }
 
     public void closeAllConnections() throws IOException {
-        for(PeerConnection peerConnection : peerConnections) {
-            peerConnection.closeConnections();
-        }
     }
 
 }
