@@ -51,26 +51,34 @@ public class PeerConnection {
         if(socketChannel == null) {
             return;
         }
-        closed = false;
+        DataReader reader = new DataReader();
+        DataWriter writer = new DataWriter();
 
-        int readLength = 0;
-        ByteBuffer lengthByteBuffer = ByteBuffer.allocate(4);
-        ByteBuffer messageBuffer;
-        lengthByteBuffer.order(ByteOrder.BIG_ENDIAN);
+        boolean readInLength = false;
+        int messageLength = 0;
+
         while(!closed) {
-            if(!lengthByteBuffer.hasRemaining()) {
-                //if we don't have any remaining bytes in the buffer, then we've filled it up with the length bytes
-                int length = lengthByteBuffer.getInt();
+            if(readInLength) {
+                reader.setBufferLength(messageLength);
+                readInLength = false;
             }
-            else{
-                //otherwise, try again
-                continue;
+            else {
+                reader.setBufferLength(4);
+                try {
+                    if(reader.read(socketChannel)) {
+
+                        readInLength = true;
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
+
     }
 
     /**
-     * Helper function to connect to a peer.
+     * Helper function to connect to a peer, either from a server socket or from a socket.
      * @return a SocketChannel object if able to connect, otherwise null
      */
     private SocketChannel connectToPeer() {
@@ -78,8 +86,8 @@ public class PeerConnection {
         SocketChannel socketChannel = null;
         if(hosting) {
 
+            //bind a new server socket to the port that this connection uses
             try {
-                //bind a new server socket to the port that this connection uses
                 serverSocketChannel = ServerSocketChannel.open();
                 serverSocketChannel.configureBlocking(false);
                 serverSocketChannel.socket().bind(new InetSocketAddress(hostPort));
@@ -88,12 +96,15 @@ public class PeerConnection {
                 return socketChannel;
             }
 
+            //accept a new connection until we close this connection or we get a remote connection
             try {
                 while(!closed && socketChannel == null) {
                     socketChannel = serverSocketChannel.accept();
                 }
                 if(socketChannel != null) {
                     socketChannel.configureBlocking(false);
+                    peerIPAddress = socketChannel.getRemoteAddress().toString();
+
                 }
             }
             catch (IOException e) {
@@ -114,4 +125,49 @@ public class PeerConnection {
         }
         return socketChannel;
     }
+}
+
+
+
+class DataReader {
+    private ByteBuffer data;
+
+    public void setBufferLength(int length) {
+        data = ByteBuffer.allocate(length);
+    }
+
+    /**
+     * Method to read data from a socket channel
+     * @param socketChannel
+     * @return
+     * @throws IOException
+     */
+    public boolean read(SocketChannel socketChannel) throws IOException {
+        socketChannel.read(data);
+        if(data.hasRemaining()) {
+            return false;
+        }
+        return true;
+    }
+
+    public byte[] getDataAsByteArray() {
+        byte[] readData = new byte[data.position()];
+        data.get(readData);
+        return readData;
+    }
+
+    public int getDataAsInt() {
+        return data.order(ByteOrder.BIG_ENDIAN).getInt();
+    }
+}
+
+class DataWriter {
+    private ByteBuffer data;
+
+
+    public void setBufferLength(int length) {
+        data = ByteBuffer.allocate(length);
+    }
+
+
 }
