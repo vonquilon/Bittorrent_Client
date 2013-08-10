@@ -1,5 +1,6 @@
 package PeerConnection;
 
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -12,7 +13,7 @@ import java.util.ArrayList;
  */
 public class PeerConnectionManager extends Thread{
     ArrayList<PeerConnection> activeConnections;
-
+    TorrentInfo info;
     public void run() {
 
     }
