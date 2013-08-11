@@ -34,8 +34,8 @@ public class TrackerResponse {
 	 * @param responseMap
 	 */
 	public static void setFields(@SuppressWarnings("rawtypes") Map responseMap) {
-		interval = (int) responseMap.get(ByteBuffer.wrap("interval".getBytes()));
-		minInterval = (int) responseMap.get(ByteBuffer.wrap("min interval".getBytes()));
+		interval = (Integer) responseMap.get(ByteBuffer.wrap("interval".getBytes()));
+		minInterval = (Integer) responseMap.get(ByteBuffer.wrap("min interval".getBytes()));
 		ByteBuffer peersBuffer = (ByteBuffer) responseMap.get(ByteBuffer.wrap("peers".getBytes()));
 		peers = decodeCompressedPeers(peersBuffer);
 	}

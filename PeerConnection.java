@@ -16,7 +16,7 @@ import java.util.*;
  */
 public class PeerConnection extends Thread{
     boolean hosting;
-    final ArrayList<PeerConnection> activeConnections;
+    final List<PeerConnection> activeConnections;
     final HashMap<String, PeerConnection> addressToConnection;
     final Queue<PeerAction> queuedActions;
 
@@ -40,7 +40,7 @@ public class PeerConnection extends Thread{
 
     DownloadedFile file;
 
-    public PeerConnection(String peerIPAddress, int peerPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection,TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
+    public PeerConnection(String peerIPAddress, int peerPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection,TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
         hostPort = 0;
 
         this.peerPort = peerPort;
@@ -57,7 +57,7 @@ public class PeerConnection extends Thread{
         this.file = file;
     }
 
-    public PeerConnection(int hostPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
+    public PeerConnection(int hostPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
         this.hostPort = hostPort;
 
         this.peerPort = 0;
@@ -73,6 +73,8 @@ public class PeerConnection extends Thread{
         peerBitfield = new boolean[(info.file_length+info.piece_length-1)/info.piece_length];
         this.file = file;
     }
+
+
 
     public void run() {
         activeConnections.add(this);
@@ -192,6 +194,7 @@ public class PeerConnection extends Thread{
                         }
                         break;
                     case 5://bitfield
+                        peerBitfield = bytesToBools(payload, file.numberOfPieces);
                         break;
                     case 6://request
                         if(!hostChokingPeer && peerInterestedHost) {
@@ -231,7 +234,6 @@ public class PeerConnection extends Thread{
 
                         break;
                     case 7://piece
-                        //TODO: finish
                         //break up the payload
                         byte[] indexBytes = subarray(payload, 0, 4);
                         byte[] beginBytes = subarray(payload, 4, 8);
@@ -241,6 +243,11 @@ public class PeerConnection extends Thread{
                         int begin = bytesToInt(beginBytes);
 
                         //write data to file
+                        try {
+                            file.writeBytes(blockBytes, index, begin);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
 
                         //tell all peers to broadcast have message
                         synchronized (activeConnections) {
@@ -248,7 +255,8 @@ public class PeerConnection extends Thread{
                                 peerConnection.addAction(new PeerAction(PeerActionCode.BROADCASTHAVE,index));
                             }
                         }
-
+                        file.downloading[index] = false;
+                        file.bitfield[index] = true;
                         break;
                 }
                 messageData = null;
@@ -288,6 +296,15 @@ public class PeerConnection extends Thread{
         }
         //finalize closing
         removeConnection();
+    }
+
+    private boolean[] bytesToBools(byte[] payload, int numberOfPieces) {
+        boolean[] bools = new boolean[numberOfPieces];
+        for(int i = 0; i < payload.length*8 && i < numberOfPieces; i++) {
+            int value = payload[i/8] & 1 << (7-i);
+            bools[i] = value != 0;
+        }
+        return bools;
     }
 
     private void removeConnection() {
@@ -488,8 +505,12 @@ public class PeerConnection extends Thread{
         return buffer.array();
     }
 
-    public void addAction(PeerAction action) {
+    public synchronized void addAction(PeerAction action) {
         queuedActions.offer(action);
+    }
+
+    public boolean canRequest() {
+        return hostInterestedPeer && !peerChokingHost;
     }
 }
 

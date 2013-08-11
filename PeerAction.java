@@ -23,6 +23,8 @@ public class PeerAction {
 enum PeerActionCode {
     CHOKEPEER,
     UNCHOKEPEER,
+    SENDINTERESTED,
+    SENDUNINTERESTED,
     REQUESTPIECE,
     BROADCASTHAVE
 }
