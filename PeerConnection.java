@@ -34,9 +34,13 @@ public class PeerConnection extends Thread{
     boolean closed;
     boolean paused;
 
+    byte[] myPeerID;
+
     boolean[] peerBitfield;
 
-    public PeerConnection(String peerIPAddress, int peerPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection,TorrentInfo info) {
+    DownloadedFile file;
+
+    public PeerConnection(String peerIPAddress, int peerPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection,TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
         hostPort = 0;
 
         this.peerPort = peerPort;
@@ -48,10 +52,12 @@ public class PeerConnection extends Thread{
         paused = false;
         queuedActions = new LinkedList<PeerAction>();
         this.info = info;
+        this.myPeerID = myPeerID;
         peerBitfield = new boolean[(info.file_length+info.piece_length-1)/info.piece_length];
+        this.file = file;
     }
 
-    public PeerConnection(int hostPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo info) {
+    public PeerConnection(int hostPort, ArrayList<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
         this.hostPort = hostPort;
 
         this.peerPort = 0;
@@ -63,7 +69,9 @@ public class PeerConnection extends Thread{
         paused = false;
         queuedActions = new LinkedList<PeerAction>();
         this.info = info;
+        this.myPeerID = myPeerID;
         peerBitfield = new boolean[(info.file_length+info.piece_length-1)/info.piece_length];
+        this.file = file;
     }
 
     public void run() {
@@ -72,9 +80,20 @@ public class PeerConnection extends Thread{
 
         SocketChannel socketChannel = connectToPeer();
         if (socketChannel == null) {
+            removeConnection();
             return;
         }
-        //if(handshakeWithPeer(socketChannel))
+        try {
+            if(!handshakeWithPeer(socketChannel, info.info_hash.array(), myPeerID, null, file.bitfield)) {
+                System.out.println("Handshake with peer " + peerIPAddress + " failed.");
+                removeConnection();
+                return;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            removeConnection();
+            return;
+        }
 
         //successful handshake, now we can continue
 
@@ -175,7 +194,6 @@ public class PeerConnection extends Thread{
                     case 5://bitfield
                         break;
                     case 6://request
-                        //TODO: finish
                         if(!hostChokingPeer && peerInterestedHost) {
                             //break up the payload
                             byte[] indexBytes = subarray(payload,0,4);
@@ -193,10 +211,22 @@ public class PeerConnection extends Thread{
                             }
 
                             //get the requested data
-
+                            byte[] data = new byte[length];
+                            try {
+                                data = file.readBytes(length, index, begin);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
 
                             //send piece message with requested data
-
+                            byte[] lengthPrefixBytes = intToBytes(9+length);
+                            byte[] idBytes = new byte[]{7};
+                            try {
+                                byte[] pieceMessage = concat(lengthPrefixBytes,idBytes,indexBytes,beginBytes,data);
+                                writer.putBytes(pieceMessage);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
 
                         break;
@@ -256,19 +286,26 @@ public class PeerConnection extends Thread{
                 e.printStackTrace();
             }
         }
+        //finalize closing
+        removeConnection();
     }
 
-    private boolean handshakeWithPeer(SocketChannel socketChannel, byte[] sha1Hash, byte[] myPeerID, byte[] peerPeerID, BitSet myBitfield) throws IOException {
+    private void removeConnection() {
+        activeConnections.remove(this);
+        addressToConnection.remove(peerIPAddress);
+    }
+
+    private boolean handshakeWithPeer(SocketChannel socketChannel, byte[] sha1Hash, byte[] myPeerID, byte[] peerPeerID, boolean[] myBitfield) throws IOException {
         byte[] byte19 = new byte[]{19};
         byte[] bitTorrentHeader = "BitTorrent Protocol".getBytes();
         byte[] reservedBytes = new byte[8];
         Arrays.fill(reservedBytes, (byte) 0);
         byte[] handshakeMessage = concat(byte19, bitTorrentHeader, reservedBytes, sha1Hash, myPeerID);
 
-        int bitfieldLength = (myBitfield.length() + 7) / 8 + 1;
+        int bitfieldLength = (myBitfield.length + 7) / 8 + 1;
         byte[] bitfieldLengthBytes = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(bitfieldLength).array();
         byte[] bitfieldID = new byte[]{5};
-        byte[] bitfieldBytes = myBitfield.toByteArray();
+        byte[] bitfieldBytes = boolsToBytes(myBitfield);
         byte[] bitfieldMessage = concat(bitfieldLengthBytes, bitfieldID, bitfieldBytes);
 
         ByteBuffer buffer;
@@ -338,6 +375,14 @@ public class PeerConnection extends Thread{
             }
         }
         return true;
+    }
+
+    private byte[] boolsToBytes(boolean[] myBitfield) {
+        byte[] bytes = new byte[(myBitfield.length+7)/8];
+        for(int i = 0; i < myBitfield.length; i++) {
+            bytes[i/8] |= 1 << (7-i%8);
+        }
+        return bytes;
     }
 
     private boolean verifyHandshake(byte[] handshakeFromPeer, byte[] sha1Hash, byte[] peerPeerID) {

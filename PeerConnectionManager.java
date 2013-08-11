@@ -15,8 +15,21 @@ public class PeerConnectionManager extends Thread{
     ArrayList<PeerConnection> activeConnections;
     HashMap<String, PeerConnection> addressToConnection;
     TorrentInfo info;
+
+    boolean closed;
+    boolean paused;
     public void run() {
-        connectToAllPeers();
+        while(!closed) {
+            if(paused) {
+                System.out.println("Pausing peer manager.");
+                while(paused) {
+
+                }
+            }
+
+            connectToAllPeers();
+
+        }
     }
 
     /**
