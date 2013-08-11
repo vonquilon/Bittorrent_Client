@@ -29,18 +29,17 @@ public class PeerConnection extends Thread{
     boolean hostInterestedPeer = false;
     boolean peerInterestedHost = false;
 
-    TorrentInfo info;
+    TorrentInfo torrentInfo;
 
     boolean closed;
     boolean paused;
 
-    byte[] myPeerID;
 
     boolean[] peerBitfield;
 
     DownloadedFile file;
 
-    public PeerConnection(String peerIPAddress, int peerPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection,TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
+    public PeerConnection(String peerIPAddress, int peerPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo torrentInfo, DownloadedFile file) {
         hostPort = 0;
 
         this.peerPort = peerPort;
@@ -51,13 +50,12 @@ public class PeerConnection extends Thread{
         hosting = false;
         paused = false;
         queuedActions = new LinkedList<PeerAction>();
-        this.info = info;
-        this.myPeerID = myPeerID;
-        peerBitfield = new boolean[(info.file_length+info.piece_length-1)/info.piece_length];
+        this.torrentInfo = torrentInfo;
+        peerBitfield = new boolean[(torrentInfo.file_length+torrentInfo.piece_length-1)/torrentInfo.piece_length];
         this.file = file;
     }
 
-    public PeerConnection(int hostPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo info, byte[] myPeerID, DownloadedFile file) {
+    public PeerConnection(int hostPort, List<PeerConnection> activeConnections, HashMap<String, PeerConnection> addressToConnection, TorrentInfo torrentInfo, DownloadedFile file) {
         this.hostPort = hostPort;
 
         this.peerPort = 0;
@@ -68,9 +66,8 @@ public class PeerConnection extends Thread{
         hosting = true;
         paused = false;
         queuedActions = new LinkedList<PeerAction>();
-        this.info = info;
-        this.myPeerID = myPeerID;
-        peerBitfield = new boolean[(info.file_length+info.piece_length-1)/info.piece_length];
+        this.torrentInfo = torrentInfo;
+        peerBitfield = new boolean[(torrentInfo.file_length+torrentInfo.piece_length-1)/torrentInfo.piece_length];
         this.file = file;
     }
 
@@ -85,8 +82,9 @@ public class PeerConnection extends Thread{
             removeConnection();
             return;
         }
+        //handshake with peer
         try {
-            if(!handshakeWithPeer(socketChannel, info.info_hash.array(), myPeerID, null, file.bitfield)) {
+            if(!handshakeWithPeer(socketChannel, torrentInfo.info_hash.array(), ClientInfo.PEER_ID, null, file.bitfield)) {
                 System.out.println("Handshake with peer " + peerIPAddress + " failed.");
                 removeConnection();
                 return;
@@ -142,7 +140,7 @@ public class PeerConnection extends Thread{
                             idBytes = new byte[]{6};
                             int index = receivedAction.argument;
                             int begin = 0;
-                            int pieceLength = info.piece_length;
+                            int pieceLength = torrentInfo.piece_length;
                             byte[] indexBytes = intToBytes(index);
                             byte[] beginBytes = intToBytes(begin);
                             byte[] pieceLengthBytes = intToBytes(pieceLength);
@@ -164,103 +162,8 @@ public class PeerConnection extends Thread{
             }
 
 
-            //code for parsing the read data from the peer and acting upon it
-            if (messageData != null) {
-
-                byte[] messageIDBytes = subarray(messageData,0,1);
-                byte messageID = messageIDBytes[0];
-                byte[] payload = subarray(messageData,1,messageData.length);
-                switch (messageID) {
-                    case 0://choke
-                        peerChokingHost = true;
-                        break;
-                    case 1://unchoke
-                        peerChokingHost = false;
-                        break;
-                    case 2://interested
-                        peerInterestedHost = true;
-                        break;
-                    case 3://uninterested
-                        peerInterestedHost = false;
-                        break;
-                    case 4://have
-                        int index = bytesToInt(payload);
-                        if(index >= peerBitfield.length) {
-                            //invalid data, close the connection
-                            closed = true;
-                        }
-                        else {
-                            peerBitfield[index] = true;
-                        }
-                        break;
-                    case 5://bitfield
-                        peerBitfield = bytesToBools(payload, file.numberOfPieces);
-                        break;
-                    case 6://request
-                        if(!hostChokingPeer && peerInterestedHost) {
-                            //break up the payload
-                            byte[] indexBytes = subarray(payload,0,4);
-                            byte[] beginBytes = subarray(payload,4,8);
-                            byte[] lengthBytes = subarray(payload,8,12);
-
-                            index = bytesToInt(indexBytes);
-                            int begin = bytesToInt(beginBytes);
-                            int length = bytesToInt(lengthBytes);
-
-                            //if requested length > 2^15, then close the connection
-                            if(length > Math.pow(2,15)) {
-                                System.out.println("Requested piece size from " + peerIPAddress + " was too large: " + length + ". Closing connection.");
-                                closed = true;
-                            }
-
-                            //get the requested data
-                            byte[] data = new byte[length];
-                            try {
-                                data = file.readBytes(length, index, begin);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
-                            //send piece message with requested data
-                            byte[] lengthPrefixBytes = intToBytes(9+length);
-                            byte[] idBytes = new byte[]{7};
-                            try {
-                                byte[] pieceMessage = concat(lengthPrefixBytes,idBytes,indexBytes,beginBytes,data);
-                                writer.putBytes(pieceMessage);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        break;
-                    case 7://piece
-                        //break up the payload
-                        byte[] indexBytes = subarray(payload, 0, 4);
-                        byte[] beginBytes = subarray(payload, 4, 8);
-                        byte[] blockBytes = subarray(payload, 8, payload.length);
-
-                        index = bytesToInt(indexBytes);
-                        int begin = bytesToInt(beginBytes);
-
-                        //write data to file
-                        try {
-                            file.writeBytes(blockBytes, index, begin);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                        //tell all peers to broadcast have message
-                        synchronized (activeConnections) {
-                            for(PeerConnection peerConnection : activeConnections) {
-                                peerConnection.addAction(new PeerAction(PeerActionCode.BROADCASTHAVE,index));
-                            }
-                        }
-                        file.downloading[index] = false;
-                        file.bitfield[index] = true;
-                        break;
-                }
-                messageData = null;
-            }
+            //parse the read data from the peer and acting upon it
+            messageData = parseIncomingData(writer, messageData);
 
             //code for reading data in from the peer
             if (!readInLength) {
@@ -296,6 +199,106 @@ public class PeerConnection extends Thread{
         }
         //finalize closing
         removeConnection();
+    }
+
+    private byte[] parseIncomingData(DataWriter writer, byte[] messageData) {
+        if (messageData != null) {
+
+            byte[] messageIDBytes = subarray(messageData,0,1);
+            byte messageID = messageIDBytes[0];
+            byte[] payload = subarray(messageData,1,messageData.length);
+            switch (messageID) {
+                case 0://choke
+                    peerChokingHost = true;
+                    break;
+                case 1://unchoke
+                    peerChokingHost = false;
+                    break;
+                case 2://interested
+                    peerInterestedHost = true;
+                    break;
+                case 3://uninterested
+                    peerInterestedHost = false;
+                    break;
+                case 4://have
+                    int index = bytesToInt(payload);
+                    if(index >= peerBitfield.length) {
+                        //invalid data, close the connection
+                        closed = true;
+                    }
+                    else {
+                        peerBitfield[index] = true;
+                    }
+                    break;
+                case 5://bitfield
+                    peerBitfield = bytesToBools(payload, file.numberOfPieces);
+                    break;
+                case 6://request
+                    if(!hostChokingPeer && peerInterestedHost) {
+                        //break up the payload
+                        byte[] indexBytes = subarray(payload,0,4);
+                        byte[] beginBytes = subarray(payload,4,8);
+                        byte[] lengthBytes = subarray(payload,8,12);
+
+                        index = bytesToInt(indexBytes);
+                        int begin = bytesToInt(beginBytes);
+                        int length = bytesToInt(lengthBytes);
+
+                        //if requested length > 2^15, then close the connection
+                        if(length > Math.pow(2,15)) {
+                            System.out.println("Requested piece size from " + peerIPAddress + " was too large: " + length + ". Closing connection.");
+                            closed = true;
+                        }
+
+                        //get the requested data
+                        byte[] data = new byte[length];
+                        try {
+                            data = file.readBytes(length, index, begin);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        //send piece message with requested data
+                        byte[] lengthPrefixBytes = intToBytes(9+length);
+                        byte[] idBytes = new byte[]{7};
+                        try {
+                            byte[] pieceMessage = concat(lengthPrefixBytes,idBytes,indexBytes,beginBytes,data);
+                            writer.putBytes(pieceMessage);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    break;
+                case 7://piece
+                    //break up the payload
+                    byte[] indexBytes = subarray(payload, 0, 4);
+                    byte[] beginBytes = subarray(payload, 4, 8);
+                    byte[] blockBytes = subarray(payload, 8, payload.length);
+
+                    index = bytesToInt(indexBytes);
+                    int begin = bytesToInt(beginBytes);
+
+                    //write data to file
+                    try {
+                        file.writeBytes(blockBytes, index, begin);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    //tell all peers to broadcast have message
+                    synchronized (activeConnections) {
+                        for(PeerConnection peerConnection : activeConnections) {
+                            peerConnection.addAction(new PeerAction(PeerActionCode.BROADCASTHAVE,index));
+                        }
+                    }
+                    file.downloading[index] = false;
+                    file.bitfield[index] = true;
+                    break;
+            }
+            messageData = null;
+        }
+        return messageData;
     }
 
     private boolean[] bytesToBools(byte[] payload, int numberOfPieces) {

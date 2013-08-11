@@ -20,6 +20,12 @@ public class PeerConnectionManager extends Thread{
     boolean paused;
     private byte[] peerID;
 
+    public PeerConnectionManager(byte[] peerID, DownloadedFile file, TorrentInfo info, ArrayList<String> peerAddresses) {
+        this.peerID = peerID;
+        this.file = file;
+        this.info = info;
+        this.peerAddresses = peerAddresses;
+    }
 
     public void run() {
         Random random = new Random();
@@ -122,7 +128,7 @@ public class PeerConnectionManager extends Thread{
             String ipAddress = splittedAddress[0];
             if(!addressToConnection.containsKey(ipAddress)) {
                 int port = Integer.parseInt(splittedAddress[1]);
-                PeerConnection newConnection = new PeerConnection(ipAddress,port, activeConnections, addressToConnection, info, peerID, file);
+                PeerConnection newConnection = new PeerConnection(ipAddress,port, activeConnections, addressToConnection, info, file);
                 newConnection.start();
             }
         }
