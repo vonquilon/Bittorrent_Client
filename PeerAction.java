@@ -1,5 +1,3 @@
-package PeerConnection;
-
 /**
  * Created with IntelliJ IDEA.
  * User: admin

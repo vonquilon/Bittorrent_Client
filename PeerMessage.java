@@ -1,5 +1,3 @@
-package PeerConnection;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
