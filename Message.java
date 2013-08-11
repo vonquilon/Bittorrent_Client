@@ -36,4 +36,29 @@ public class Message {
 			return true;
 		}
 	}
+	
+	public static ByteBuffer createKeepAlive() {
+		return KEEP_ALIVE;
+	}
+	
+	public static ByteBuffer createInterested() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.put(new byte[]{0,0,0,1});
+		return result.put((byte) 2);
+	}
+	
+	public static ByteBuffer createNotInterested() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.put(new byte[]{0,0,0,1});
+		return result.put((byte) 3);
+	}
+	
+	public static ByteBuffer createRequest(int index, int begin, int length) {
+		ByteBuffer result = ByteBuffer.allocate(17);
+		result.put(new byte[]{0,0,1,3});
+		result.put((byte) 6);
+		result.putInt(index);
+		result.putInt(begin);
+		return result.putInt(length);
+	}
 }

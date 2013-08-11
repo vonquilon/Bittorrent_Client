@@ -29,4 +29,8 @@ public class Output implements Runnable{
 			}
 		}
 	}
+	
+	public void close() throws IOException {
+		stopped = true; out.close();
+	}
 }

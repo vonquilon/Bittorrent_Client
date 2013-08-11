@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Set;
@@ -5,29 +8,47 @@ import java.util.Set;
 public class ConnectionManager implements Runnable{
 
 	private volatile boolean stopped = false;
+	private TorrentInfo torrentInfo;
 	private boolean trackerDone = false;
 	private boolean bitfieldDone = false;
+	private boolean sorted = false;
+	private ArrayList<Object> downloadQueue = new ArrayList<Object>();
+	private static ArrayList<Piece> sortedPieces;
+	public static volatile HashMap<String, Piece> downloading = new HashMap<String, Piece>(10);
 	public static volatile HashMap<String,PeerConnection> choked = new HashMap<String,PeerConnection>(10);
 	public static volatile HashMap<String,PeerConnection> unchoked = new HashMap<String,PeerConnection>(10);
 	public static volatile HashMap<Integer, Piece> pieces;
+	public static volatile ArrayList<Integer> donePieces;
 	
 	public ConnectionManager(TorrentInfo torrentInfo) {
+		this.torrentInfo = torrentInfo;
 		pieces = new HashMap<Integer, Piece>(torrentInfo.piece_hashes.length*2);
+		donePieces = new ArrayList<Integer>(torrentInfo.piece_hashes.length);
 		for(int i = 0; i < torrentInfo.piece_hashes.length; i++)
-			pieces.put(i, new Piece());
+			pieces.put(i, new Piece(i));
 	}
 	
 	@Override
 	public void run() {
 		while(!stopped) {
-			if(TrackerResponse.peers != null && !trackerDone) {
+			if(TrackerResponse.peers != null && !trackerDone)
 				startConnections();
-			}
-			if(!bitfieldDone) {
+			if(!bitfieldDone)
 				checkBitfieldProcess();
-			}
+			else {
+				if(!sorted) {
+					sort(); sorted = true;
+				} else {
+					for(int i = 0; i < 4; i++) {
+						if(sortedPieces.size() == 0)
+							break;
+						findPeer(sortedPieces.remove(0), false);
+					}//end for
+					checkDownloadQueue();
+				}//end else
+			}//end else
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				//do nothing
 			}
@@ -43,7 +64,7 @@ public class ConnectionManager implements Runnable{
 		for(int i = 0; i < size; i++) {
 			String[] IPandPort = TrackerResponse.peers.get(i).split(":");
 			if(!IPandPort[0].equals(ClientInfo.IPAddress)) {
-				PeerConnection peer = new PeerConnection(IPandPort[0], IPandPort[1]);
+				PeerConnection peer = new PeerConnection(IPandPort[0], IPandPort[1], false);
 				choked.put(IPandPort[0], peer);
 				peer.outputQueue.add(Message.handshake);
 				new Thread(peer).start();
@@ -63,4 +84,84 @@ public class ConnectionManager implements Runnable{
 			}
 		}
 	}
+	
+	private void findPeer(Piece piece, boolean restarted) {
+		for(int j = 0; j < piece.peers.size(); j++) {
+			String peer = piece.peers.get(j);
+			if(downloading.containsKey(peer) && j != piece.peers.size()-1)
+				continue;
+			else {
+				if(choked.containsKey(peer)) {
+					if(unchoked.size() < 4) {
+						choked.get(peer).outputQueue.add(Message.createInterested());
+						addToQueue(piece, peer, restarted);
+						downloading.put(peer, piece);
+					} else {
+						addToQueue(piece, peer, restarted);
+					}
+					break;
+				} else {
+					addToQueue(piece, peer, restarted);
+					break;
+				}
+			}
+		}
+	}
+	
+	private void addToQueue(Piece piece, String peer, boolean restarted) {
+		if(restarted) {
+			downloadQueue.add(0, peer); downloadQueue.add(1, piece); 
+		}
+		else {
+			downloadQueue.add(peer); downloadQueue.add(piece);
+		}
+	}
+	
+	private void checkDownloadQueue() {
+		if(downloadQueue.size() != 0) {
+			String peer = (String) downloadQueue.get(0);
+			if(choked.containsKey(peer)) {
+				Set<String> peers = unchoked.keySet();
+				Iterator<String> iterator = peers.iterator();
+				while(iterator.hasNext()) {
+					String unchokedPeer = iterator.next();
+					if(downloading.containsKey(unchokedPeer)) {
+						//do nothing
+					}
+					else {
+						unchoked.get(unchokedPeer).outputQueue.add(Message.createNotInterested());
+						choked.get(peer).outputQueue.add(Message.createInterested());
+						downloading.put(peer, (Piece) downloadQueue.get(1));
+						break;
+					}
+				}//end while
+			} else if(unchoked.containsKey(peer)) {
+				downloadQueue.remove(0);
+				Piece piece = (Piece) downloadQueue.remove(1);
+				int size;
+				if(piece.index == torrentInfo.piece_hashes.length-1)
+					size = torrentInfo.file_length - (torrentInfo.piece_hashes.length-1)
+						* torrentInfo.piece_length;
+				else
+					size = torrentInfo.piece_length;
+				unchoked.get(peer).outputQueue.add(Message.createRequest(piece.index, 0, size));
+			} else {
+				downloadQueue.remove(0);
+				findPeer((Piece) downloadQueue.remove(1), true);
+			}
+		}
+	}
+	
+	public static synchronized void sort() {
+		sortedPieces = new ArrayList<Piece>(pieces.values());
+		Collections.sort(sortedPieces, new PieceComparable());
+	}
+	
+	private static class PieceComparable implements Comparator<Piece>{
+
+		@Override
+		public int compare(Piece o1, Piece o2) {
+			return (o1.occurrences>o2.occurrences ? -1 : (o1.occurrences==o2.occurrences ? 0 : 1));
+		}
+	} 
 }
