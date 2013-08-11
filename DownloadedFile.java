@@ -13,6 +13,7 @@ import java.util.Arrays;
  */
 public class DownloadedFile {
     RandomAccessFile file;
+    String filename;
     boolean[] downloading;
     boolean[] bitfield;
     int fileSize;
@@ -24,6 +25,7 @@ public class DownloadedFile {
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
         numberOfPieces = (fileSize+pieceSize-1)/pieceSize;
+        this.filename = filename;
         File baseFile = new File(filename);
         try {
             file = new RandomAccessFile(baseFile, "rw");

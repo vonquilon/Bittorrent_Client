@@ -9,22 +9,20 @@ import java.util.*;
  * To change this template use File | Settings | File Templates.
  */
 public class PeerConnectionManager extends Thread{
-    ArrayList<String> peerAddresses;
 
     List<PeerConnection> activeConnections = Collections.synchronizedList(new ArrayList<PeerConnection>());
     HashMap<String, PeerConnection> addressToConnection;
     TorrentInfo info;
     DownloadedFile file;
 
+    String downloadedFilename;
+
     boolean closed;
     boolean paused;
-    private byte[] peerID;
 
-    public PeerConnectionManager(byte[] peerID, DownloadedFile file, TorrentInfo info, ArrayList<String> peerAddresses) {
-        this.peerID = peerID;
-        this.file = file;
+    public PeerConnectionManager(TorrentInfo info, String downloadedFilename) {
         this.info = info;
-        this.peerAddresses = peerAddresses;
+        this.downloadedFilename = downloadedFilename;
     }
 
     public void run() {
@@ -33,6 +31,8 @@ public class PeerConnectionManager extends Thread{
         for(int i = 0; i < downloadingTimer.length; i++ ){
             downloadingTimer[i] = System.currentTimeMillis();
         }
+
+        DownloadedFile file = new DownloadedFile(info.file_length,info.piece_length,downloadedFilename);
 
         while(!closed) {
             if(paused) {
@@ -122,8 +122,8 @@ public class PeerConnectionManager extends Thread{
     /**
      * Connects to all the peers provided in the peerlist by the tracker. Ensures that each peer is only connected to once.
      */
-    private void connectToAllPeers() {
-        for(String address : peerAddresses) {
+    private synchronized void connectToAllPeers() {
+        for(String address : TrackerResponse.peers) {
             String[] splittedAddress = address.split(":");
             String ipAddress = splittedAddress[0];
             if(!addressToConnection.containsKey(ipAddress)) {

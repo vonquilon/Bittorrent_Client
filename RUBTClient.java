@@ -44,7 +44,6 @@ public class RUBTClient {
 	TorrentInfo torrentInfo = null;
 	private TrackerConnection trackerConnection = null;
     private PeerConnectionManager connectionManager;
-    //private ConnectionManager connection = null;
 	
 	/**
 	 * Creates a RUBTClient with the specified torrent file name and the
@@ -98,7 +97,7 @@ public class RUBTClient {
             			new Thread(trackerConnection).start();
             		}
             		if(connectionManager == null) {
-            			connectionManager = new PeerConnectionManager(torrentInfo);
+            			connectionManager = new PeerConnectionManager(torrentInfo,fileName);
             			new Thread(connectionManager).start();
             		}
             	} else {
