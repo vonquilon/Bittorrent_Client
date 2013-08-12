@@ -8,25 +8,35 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class PeerConnection implements Runnable{
 
 	private volatile boolean stopped = false;
-	private Socket socket;
-	private Output out;
-	private Input in;
+	private Socket socket = null;
+	private Output out = null;
+	private Input in = null;
 	private int port;
+	private final Timer TIMER = new Timer();
+	private TimerTask task = null;
+	private long delay;
 	public String IPAddress;
-	//public boolean isHandshakeVerified = false;
+	public FileManager fileManager;
 	public volatile ArrayList<ByteBuffer> outputQueue;
 	public boolean done = false;
 	public boolean isUpload;
 	
-	public PeerConnection(String IPAddress, String port, boolean isUpload) {
+	public PeerConnection(String IPAddress, String port, boolean isUpload, FileManager fileManager) {
 		this.IPAddress = IPAddress;
 		this.port = Integer.parseInt(port);
 		this.isUpload = isUpload;
+		this.fileManager = fileManager;
 		outputQueue = new ArrayList<ByteBuffer>();
+		if(isUpload)
+			delay = 2500;
+		else
+			delay = 2000;
 	}
 	
 	@Override
@@ -46,13 +56,56 @@ public class PeerConnection implements Runnable{
 			}
 		} catch (IOException e) {
 			System.out.println("Could no connect to " + IPAddress);
+			close();
 		}
+	}
+	
+	public void scheduleTask() {
+		if(isUpload) {
+			task = new TimerTask() {
+				public void run() {
+					close();
+				}
+			};
+		} else {
+			task = new TimerTask() {
+				public void run() {
+					outputQueue.add(Message.createKeepAlive());
+				}
+			};
+		}
+		TIMER.schedule(task, delay, delay);
+	}
+	
+	public void resetTimer() {
+		if(task != null) {
+			task.cancel(); TIMER.purge();
+			scheduleTask();
+		}
+	}
+	
+	private void cancelTimer() {
+		if(task != null)
+			task.cancel();
+		TIMER.cancel();
 	}
 	
 	public void close() {
 		stopped = true;
 		try {
-			in.close(); out.close(); socket.close(); 
+			if(ConnectionManager.unchoked.containsKey(IPAddress))
+				ConnectionManager.unchoked.remove(IPAddress);
+			if(ConnectionManager.choked.containsKey(IPAddress))
+				ConnectionManager.choked.remove(IPAddress);
+			if(ConnectionManager.downloading.containsKey(IPAddress))
+				ConnectionManager.downloading.remove(IPAddress);
+			cancelTimer();
+			if(in != null)
+				in.close(); 
+			if(out != null)
+				out.close();
+			if(socket != null)
+				socket.close();
 		} catch (IOException e) {
 			System.out.println("Could not close connection with " + IPAddress);
 		}

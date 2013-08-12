@@ -18,6 +18,8 @@ public class Output implements Runnable{
 			if(connection.outputQueue.size() > 0) {
 				try {
 					out.write(connection.outputQueue.remove(0).array());
+					if(!connection.isUpload)
+						connection.resetTimer();
 				} catch (IOException e) {
 					System.out.println("Could not send data to " + connection.IPAddress);
 				}

@@ -43,6 +43,7 @@ public class RUBTClient {
 	private boolean started = false;
 	TorrentInfo torrentInfo = null;
 	private TrackerConnection trackerConnection = null;
+	private FileManager fileManager = null;
 	private ConnectionManager connection = null;
 	
 	/**
@@ -96,8 +97,10 @@ public class RUBTClient {
             			trackerConnection = new TrackerConnection(torrentInfo);
             			new Thread(trackerConnection).start();
             		}
+            		if(fileManager == null)
+            			fileManager = new FileManager(torrentInfo.file_length, fileName);
             		if(connection == null) {
-            			connection = new ConnectionManager(torrentInfo);
+            			connection = new ConnectionManager(torrentInfo, fileManager);
             			new Thread(connection).start();
             		}
             	} else {

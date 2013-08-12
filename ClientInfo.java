@@ -34,17 +34,17 @@ public class ClientInfo {
 	/**
 	 * The number of bytes the client has uploaded.
 	 */
-	public static int uploaded = 0;
+	public static volatile int uploaded = 0;
 	
 	/**
 	 * The number of bytes the client has downloaded.
 	 */
-	public static int downloaded = 0;
+	public static volatile int downloaded = 0;
 	
 	/**
 	 * The number of bytes the client has not yet downloaded.
 	 */
-	public static int left;
+	public static volatile int left;
 	
 	/**
      * Sets the public final static field, PEER_ID, to 20 bytes of characters.
