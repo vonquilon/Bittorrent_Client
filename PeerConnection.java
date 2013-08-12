@@ -126,6 +126,7 @@ public class PeerConnection extends Thread{
                             byte[] idBytes = new byte[]{0};
                             byte[] chokeMessage = concat(length,idBytes);
                             writer.putBytes(chokeMessage);
+                            System.out.println(generateConnectionLabel() + "sent choke");
                             hostChokingPeer = true;
                             break;
                         case UNCHOKEPEER:
@@ -134,6 +135,7 @@ public class PeerConnection extends Thread{
                             byte[] unchokeMessage = concat(length, idBytes);
                             writer.putBytes(unchokeMessage);
                             hostChokingPeer = false;
+                            System.out.println(generateConnectionLabel() + "sent unchoke");
                             break;
                         case REQUESTPIECE:
                             length = intToBytes(13);
@@ -146,6 +148,7 @@ public class PeerConnection extends Thread{
                             byte[] pieceLengthBytes = intToBytes(pieceLength);
                             byte[] requestMessage = concat(length,idBytes,indexBytes,beginBytes,pieceLengthBytes);
                             writer.putBytes(requestMessage);
+                            System.out.println(generateConnectionLabel() + "sent request");
                             break;
                         case BROADCASTHAVE:
                             index = receivedAction.argument;
@@ -154,6 +157,7 @@ public class PeerConnection extends Thread{
                             indexBytes = intToBytes(index);
                             byte[] haveMessage = concat(length, idBytes, indexBytes);
                             writer.putBytes(haveMessage);
+                            System.out.println(generateConnectionLabel() + "sent have piece " + index);
                             break;
                     }
                 } catch (IOException e) {
@@ -201,6 +205,10 @@ public class PeerConnection extends Thread{
         removeConnection();
     }
 
+    private String generateConnectionLabel() {
+        return "Connection to peer " + peerIPAddress + ": ";
+    }
+
     private byte[] parseIncomingData(DataWriter writer, byte[] messageData) {
         if (messageData != null) {
 
@@ -210,15 +218,19 @@ public class PeerConnection extends Thread{
             switch (messageID) {
                 case 0://choke
                     peerChokingHost = true;
+                    System.out.println(generateConnectionLabel() + "got choke");
                     break;
                 case 1://unchoke
                     peerChokingHost = false;
+                    System.out.println(generateConnectionLabel() + "got unchoke");
                     break;
                 case 2://interested
                     peerInterestedHost = true;
+                    System.out.println(generateConnectionLabel() + "got interested");
                     break;
                 case 3://uninterested
                     peerInterestedHost = false;
+                    System.out.println(generateConnectionLabel() + "got uninterested");
                     break;
                 case 4://have
                     int index = bytesToInt(payload);
@@ -228,10 +240,12 @@ public class PeerConnection extends Thread{
                     }
                     else {
                         peerBitfield[index] = true;
+                        System.out.println(generateConnectionLabel() + "got have for index " + index);
                     }
                     break;
                 case 5://bitfield
                     peerBitfield = bytesToBools(payload, file.numberOfPieces);
+                    System.out.println(generateConnectionLabel() + "got bitfield " + Arrays.toString(peerBitfield));
                     break;
                 case 6://request
                     if(!hostChokingPeer && peerInterestedHost) {
@@ -244,6 +258,7 @@ public class PeerConnection extends Thread{
                         int begin = bytesToInt(beginBytes);
                         int length = bytesToInt(lengthBytes);
 
+                        System.out.println(generateConnectionLabel() + "got request for " + index);
                         //if requested length > 2^15, then close the connection
                         if(length > Math.pow(2,15)) {
                             System.out.println("Requested piece size from " + peerIPAddress + " was too large: " + length + ". Closing connection.");
@@ -267,10 +282,12 @@ public class PeerConnection extends Thread{
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
+                        System.out.println(generateConnectionLabel() + "sent piece for " + index);
                     }
 
                     break;
                 case 7://piece
+
                     //break up the payload
                     byte[] indexBytes = subarray(payload, 0, 4);
                     byte[] beginBytes = subarray(payload, 4, 8);
@@ -279,11 +296,17 @@ public class PeerConnection extends Thread{
                     index = bytesToInt(indexBytes);
                     int begin = bytesToInt(beginBytes);
 
+                    System.out.println(generateConnectionLabel() + "got piece " + index);
+
                     //write data to file
-                    try {
-                        file.writeBytes(blockBytes, index, begin);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    //TODO: properly validate piece before adding it
+                    boolean validatePiece = true;
+                    if (validatePiece) {
+                        try {
+                            file.writeBytes(blockBytes, index, begin);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
 
                     //tell all peers to broadcast have message
