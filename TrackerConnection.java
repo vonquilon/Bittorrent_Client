@@ -21,7 +21,7 @@ public class TrackerConnection implements Runnable{
 	private static TorrentInfo torrentInfo;
 	private final static Timer TIMER = new Timer();
 	private static long delay;
-	private static TimerTask task;
+	private static TimerTask task = null;
 	
 	/**
 	 * Creates a TrackerConnection.
@@ -58,6 +58,7 @@ public class TrackerConnection implements Runnable{
 			System.out.println("Interval: " + TrackerResponse.interval + " secs");
 			System.out.println("Minimum interval: " + TrackerResponse.minInterval + " secs");
 			System.out.println("Peers: " + TrackerResponse.peers + "\n");
+			scheduleTask();
 		} catch (MalformedURLException e) {
 			System.err.println("Unknown URL protocol!");
 		} catch (IOException e) {
@@ -65,7 +66,6 @@ public class TrackerConnection implements Runnable{
 		} catch (BencodingException e) {
 			System.err.println(e.getMessage());
 		}
-		scheduleTask();
 	}
 	
 	/**
@@ -81,7 +81,7 @@ public class TrackerConnection implements Runnable{
      * @return URL - The created URL object
      * @throws MalformedURLException - Unknown URL protocol
      */
-    private static URL makeURL(String announce, byte[] peerID, int port, ByteBuffer infoHashBytes, int uploaded,
+    public static URL makeURL(String announce, byte[] peerID, int port, ByteBuffer infoHashBytes, int uploaded,
     		int downloaded, int left, String event) throws MalformedURLException {
         StringBuilder urlSb = new StringBuilder();
         urlSb.append(announce);
@@ -168,8 +168,10 @@ public class TrackerConnection implements Runnable{
      * every (interval - min interval)/2 + min interval seconds.
      */
     public static void resetTimer() {
-    	task.cancel(); TIMER.purge();
-    	scheduleTask();
+    	if(task != null) {
+    		task.cancel(); TIMER.purge();
+    		scheduleTask();
+    	}
     }
     
     /**

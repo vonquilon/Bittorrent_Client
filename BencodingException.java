@@ -1,5 +1,5 @@
 /*
- *  RUBTClient is a BitTorrent client written at Rutgers University for 
+ *  RUBTClient2 is a BitTorrent client written at Rutgers University for
  *  instructional use.
  *  Copyright (C) 2008-2011  Robert Moore II
  *

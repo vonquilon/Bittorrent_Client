@@ -36,4 +36,57 @@ public class Message {
 			return true;
 		}
 	}
+	
+	public static ByteBuffer createKeepAlive() {
+		return KEEP_ALIVE;
+	}
+	
+	public static ByteBuffer createChoke() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.putInt(1);
+		return result.put((byte) 0);
+	}
+	
+	public static ByteBuffer createUnchoke() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.putInt(1);
+		return result.put((byte) 1);
+	}
+	
+	public static ByteBuffer createInterested() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.putInt(1);
+		return result.put((byte) 2);
+	}
+	
+	public static ByteBuffer createNotInterested() {
+		ByteBuffer result = ByteBuffer.allocate(5);
+		result.putInt(1);
+		return result.put((byte) 3);
+	}
+	
+	public static ByteBuffer createHave(int index) {
+		ByteBuffer result = ByteBuffer.allocate(9);
+		result.putInt(5);
+		result.put((byte) 4);
+		return result.putInt(index);
+	}
+	
+	public static ByteBuffer createRequest(int index, int begin, int length) {
+		ByteBuffer result = ByteBuffer.allocate(17);
+		result.putInt(13);
+		result.put((byte) 6);
+		result.putInt(index);
+		result.putInt(begin);
+		return result.putInt(length);
+	}
+	
+	public static ByteBuffer createPiece(int index, int begin, byte[] block) {
+		ByteBuffer result = ByteBuffer.allocate(13+block.length);
+		result.putInt(9+block.length);
+		result.put((byte) 7);
+		result.putInt(index);
+		result.putInt(begin);
+		return result.put(block);
+	}
 }

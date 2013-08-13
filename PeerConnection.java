@@ -8,28 +8,57 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class PeerConnection implements Runnable{
 
 	private volatile boolean stopped = false;
-	public String IPAddress;
+	private Socket socket = null;
+	private Output out = null;
+	private Input in = null;
 	private int port;
-	//public boolean isHandshakeVerified = false;
+	private final Timer TIMER = new Timer();
+	private TimerTask task = null;
+	private long delay;
+	public String IPAddress;
+	public FileManager fileManager;
 	public volatile ArrayList<ByteBuffer> outputQueue;
 	public boolean done = false;
+	public boolean isUpload;
 	
-	public PeerConnection(String IPAddress, String port) {
+	public PeerConnection(String IPAddress, String port, boolean isUpload, FileManager fileManager) {
 		this.IPAddress = IPAddress;
 		this.port = Integer.parseInt(port);
+		this.isUpload = isUpload;
+		this.fileManager = fileManager;
 		outputQueue = new ArrayList<ByteBuffer>();
+		if(isUpload)
+			delay = 2500;
+		else
+			delay = 2000;
+	}
+	
+	public PeerConnection(Socket socket, boolean isUpload, FileManager fileManager) {
+		this.socket = socket;
+		this.IPAddress = socket.getInetAddress().getHostAddress();
+		this.port = socket.getPort();
+		this.isUpload = isUpload;
+		this.fileManager = fileManager;
+		outputQueue = new ArrayList<ByteBuffer>();
+		if(isUpload)
+			delay = 2500;
+		else
+			delay = 2000;
 	}
 	
 	@Override
 	public void run() {
 		try {
-			Socket socket = new Socket(IPAddress, port);
-			Output out = new Output(this, socket.getOutputStream());
-			Input in = new Input(this, socket.getInputStream());
+			if(socket == null)
+				socket = new Socket(IPAddress, port);
+			out = new Output(this, socket.getOutputStream());
+			in = new Input(this, socket.getInputStream());
 			new Thread(out).start();
 			new Thread(in).start();
 			while(!stopped) {
@@ -38,10 +67,63 @@ public class PeerConnection implements Runnable{
 				} catch (InterruptedException e) {
 					//do nothing
 				}
+				if(ClientInfo.left == 0)
+					close();
 			}
-			socket.close();
 		} catch (IOException e) {
-			System.out.println("Could no connect to " + IPAddress);
+			System.out.println("Could not connect to " + IPAddress);
+			close();
 		}
-	}	
+	}
+	
+	public void scheduleTask() {
+		if(isUpload) {
+			task = new TimerTask() {
+				public void run() {
+					close();
+				}
+			};
+		} else {
+			task = new TimerTask() {
+				public void run() {
+					outputQueue.add(Message.createKeepAlive());
+				}
+			};
+		}
+		TIMER.schedule(task, delay, delay);
+	}
+	
+	public void resetTimer() {
+		if(task != null) {
+			task.cancel(); TIMER.purge();
+			scheduleTask();
+		}
+	}
+	
+	private void cancelTimer() {
+		if(task != null)
+			task.cancel();
+		TIMER.cancel();
+	}
+	
+	public void close() {
+		stopped = true;
+		try {
+			if(ConnectionManager.unchoked.containsKey(IPAddress))
+				ConnectionManager.unchoked.remove(IPAddress);
+			if(ConnectionManager.choked.containsKey(IPAddress))
+				ConnectionManager.choked.remove(IPAddress);
+			if(ConnectionManager.downloading.containsKey(IPAddress))
+				ConnectionManager.downloading.remove(IPAddress);
+			cancelTimer();
+			if(in != null)
+				in.close(); 
+			if(out != null)
+				out.close();
+			if(socket != null)
+				socket.close();
+		} catch (IOException e) {
+			System.out.println("Could not close connection with " + IPAddress);
+		}
+	}
 }
