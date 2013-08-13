@@ -13,12 +13,20 @@ public class Input implements Runnable{
 	private volatile boolean stopped = false;
 	private PeerConnection connection;
 	private InputStream in;
-	
+
+    /**
+     * Constructor for the input stream
+     * @param connection the peer connection to this input
+     * @param in the input stream connected to a Socket on which data is sent
+     */
 	public Input(PeerConnection connection, InputStream in) {
 		this.connection = connection;
 		this.in = in;
 	}
 
+    /**
+     * Runs this input thread
+     */
 	@Override
 	public void run() {
 		try {
@@ -227,7 +235,11 @@ public class Input implements Runnable{
 		else
 			return false;
 	}
-	
+
+    /**
+     * Closes this input thread
+     * @throws IOException if unable to close the InputStream
+     */
 	public void close() throws IOException {
 		stopped = true; in.close();
 	}

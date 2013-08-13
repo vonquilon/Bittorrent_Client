@@ -30,7 +30,12 @@ public class ConnectionManager implements Runnable{
 	public static volatile HashMap<String,PeerConnection> unchoked = new HashMap<String,PeerConnection>(10);
 	public static volatile HashMap<Integer, Piece> pieces;
 	public static volatile ArrayList<Integer> donePieces;
-	
+
+    /**
+     * Constructs this connection manager
+     * @param torrentInfo the decoded info from the torrent file
+     * @param fileManager the file manager that handles all of the uploading/downloading to the file
+     */
 	public ConnectionManager(TorrentInfo torrentInfo, FileManager fileManager) {
 		ConnectionManager.torrentInfo = torrentInfo;
 		this.fileManager = fileManager;
@@ -39,7 +44,10 @@ public class ConnectionManager implements Runnable{
 		for(int i = 0; i < torrentInfo.piece_hashes.length; i++)
 			pieces.put(i, new Piece(i));
 	}
-	
+
+    /**
+     * Runs the connection manager, which then downloads and uploads the file
+     */
 	@Override
 	public void run() {
 		while(!stopped) {
@@ -231,7 +239,10 @@ public class ConnectionManager implements Runnable{
 				activeDownloadConnections++;
 		}
 	}
-	
+
+    /**
+     * Sorts the pieces according to number of occurrences for use in determining the least common piece, which is the one we should request
+     */
 	public static synchronized void sort() {
 		isSorting = true;
 		while(checkingSortedPieces);

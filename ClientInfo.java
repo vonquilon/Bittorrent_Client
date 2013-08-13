@@ -74,7 +74,10 @@ public class ClientInfo {
 
         return peerID;
     }
-    
+
+    /**
+     * Gets our current IP from the website http://checkip.amazonaws.com/ and puts it into the IPAddress field.
+     */
     public static void setIP() {
     	try {
     		URL IP = new URL("http://checkip.amazonaws.com");
@@ -125,7 +128,11 @@ public class ClientInfo {
     public static void setLeft(int leftToDownload) {
     	left = leftToDownload;
     }
-    
+
+    /**
+     * Creates a new bitfield to store bits corresponding to the pieces we've downloaded
+     * @param size the number of pieces we have
+     */
     public static void setBitfield(int size) {
     	bitfield = new BitSet(size);
     }

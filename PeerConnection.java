@@ -26,7 +26,7 @@ public class PeerConnection implements Runnable{
 	public volatile ArrayList<ByteBuffer> outputQueue;
 	public boolean done = false;
 	public boolean isUpload;
-	
+
 	public PeerConnection(String IPAddress, String port, boolean isUpload, FileManager fileManager) {
 		this.IPAddress = IPAddress;
 		this.port = Integer.parseInt(port);
