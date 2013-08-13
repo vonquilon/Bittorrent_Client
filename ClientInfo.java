@@ -4,6 +4,7 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.util.BitSet;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
@@ -45,6 +46,8 @@ public class ClientInfo {
 	 * The number of bytes the client has not yet downloaded.
 	 */
 	public static volatile int left;
+	
+	public static BitSet bitfield;
 	
 	/**
      * Sets the public final static field, PEER_ID, to 20 bytes of characters.
@@ -121,5 +124,9 @@ public class ClientInfo {
      */
     public static void setLeft(int leftToDownload) {
     	left = leftToDownload;
+    }
+    
+    public static void setBitfield(int size) {
+    	bitfield = new BitSet(size);
     }
 }

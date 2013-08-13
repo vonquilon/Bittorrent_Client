@@ -39,10 +39,24 @@ public class PeerConnection implements Runnable{
 			delay = 2000;
 	}
 	
+	public PeerConnection(Socket socket, boolean isUpload, FileManager fileManager) {
+		this.socket = socket;
+		this.IPAddress = socket.getInetAddress().getHostAddress();
+		this.port = socket.getPort();
+		this.isUpload = isUpload;
+		this.fileManager = fileManager;
+		outputQueue = new ArrayList<ByteBuffer>();
+		if(isUpload)
+			delay = 2500;
+		else
+			delay = 2000;
+	}
+	
 	@Override
 	public void run() {
 		try {
-			socket = new Socket(IPAddress, port);
+			if(socket == null)
+				socket = new Socket(IPAddress, port);
 			out = new Output(this, socket.getOutputStream());
 			in = new Input(this, socket.getInputStream());
 			new Thread(out).start();
@@ -53,9 +67,11 @@ public class PeerConnection implements Runnable{
 				} catch (InterruptedException e) {
 					//do nothing
 				}
+				if(ClientInfo.left == 0)
+					close();
 			}
 		} catch (IOException e) {
-			System.out.println("Could no connect to " + IPAddress);
+			System.out.println("Could not connect to " + IPAddress);
 			close();
 		}
 	}

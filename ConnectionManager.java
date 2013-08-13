@@ -1,4 +1,6 @@
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -14,6 +16,7 @@ public class ConnectionManager implements Runnable{
 	private boolean bitfieldDone = false;
 	private boolean sorted = false;
 	private final Random RANDOM = new Random();
+	private int peersOffset = 0;
 	private int activeDownloadConnections = 0;
 	private int activeUploadConnections = 0;
 	private FileManager fileManager;
@@ -53,17 +56,47 @@ public class ConnectionManager implements Runnable{
 						for(int i = 0; i < 4; i++) {
 							if(sortedPieces.size() == 0 || isSorting)
 								break;
-							if(!isSorting)
-								findPeer(sortedPieces.remove(0), false);
-						}
+							if(!isSorting) {
+								int offset = 0;
+								while(offset < sortedPieces.size()-1) {
+									if(sortedPieces.get(offset).occurrences != sortedPieces.get(offset+1).occurrences)
+										break;
+									offset++;
+								}
+								int index;
+								int random = RANDOM.nextInt(offset+1);
+								if(random == 0)
+									index = random;
+								else
+									index = random-1;
+								findPeer(sortedPieces.remove(index), false);
+							}
+						}//end for
 						checkingSortedPieces = false;
 					}//end if
 					checkDownloadQueue();
 					updateActiveConnections();
+					if( ((choked.size()+unchoked.size()) < 10) && (peersOffset < TrackerResponse.peers.size()))
+						getConnections(10 - (choked.size()+unchoked.size()) );
 				}//end else
+				if(ClientInfo.left == 0) {
+					stopped = true;
+					try {
+						URLConnection trackerCommunication = TrackerConnection.makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
+								torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, "completed").openConnection();
+						TrackerConnection.resetTimer();
+						trackerCommunication.connect();
+						System.out.println("Contacted tracker with event completed.");
+					} catch (MalformedURLException e) {
+						System.out.println("Unknown URL protocol!");
+					} catch (IOException e) {
+						System.out.println("Could not contact tracker.");
+					}
+					System.out.println("Download complete.");
+				}
 			}//end else
 			try {
-				Thread.sleep(500);
+				Thread.sleep(100);
 			} catch (InterruptedException e) {
 				//do nothing
 			}
@@ -72,19 +105,30 @@ public class ConnectionManager implements Runnable{
 	
 	private void startConnections() {
 		try {
-			TrackerConnection.makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
-					torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, "started");
+			URLConnection trackerCommunication = TrackerConnection.makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
+					torrentInfo.info_hash, ClientInfo.uploaded, ClientInfo.downloaded, ClientInfo.left, "started").openConnection();
+			TrackerConnection.resetTimer();
+			trackerCommunication.connect();
+			System.out.println("Contacted tracker with event started.");
 		} catch (MalformedURLException e) {
 			System.out.println("Unknown URL protocol!");
+		} catch (IOException e) {
+			System.out.println("Could not contact tracker.");
 		}
 		System.out.println("\nDownload Process:");
+		System.out.println("Initiating... May take up to a minute.");
+		getConnections(10);
+		trackerDone = true;
+	}
+	
+	private void getConnections(int peers) {
 		int size;
-		if(TrackerResponse.peers.size() > 10)
-			size = 10;
+		if((TrackerResponse.peers.size()-peersOffset) > peers)
+			size = peers;
 		else
-			size = TrackerResponse.peers.size();
-		for(int i = 0; i < size; i++) {
-			String[] IPandPort = TrackerResponse.peers.get(i).split(":");
+			size = TrackerResponse.peers.size()-peersOffset;
+		for(int i = 0; i < size; i++,peersOffset++) {
+			String[] IPandPort = TrackerResponse.peers.get(peersOffset).split(":");
 			if(!IPandPort[0].equals(ClientInfo.IPAddress)) {
 				PeerConnection peer = new PeerConnection(IPandPort[0], IPandPort[1], false, fileManager);
 				choked.put(IPandPort[0], peer);
@@ -92,7 +136,6 @@ public class ConnectionManager implements Runnable{
 				new Thread(peer).start();
 			}
 		}
-		trackerDone = true;
 	}
 	
 	private void checkBitfieldProcess() {
@@ -108,7 +151,7 @@ public class ConnectionManager implements Runnable{
 	}
 	
 	private void findPeer(Piece piece, boolean restarted) {
-			if(activeDownloadConnections < 4) {
+			if(activeDownloadConnections < 4 && activeUploadConnections <= 2 && choked.size() != 0) {
 				for(int j = 0; j < piece.peers.size(); j++) {
 					String peer = piece.peers.get(j);
 					if(choked.containsKey(peer)) {
@@ -130,26 +173,6 @@ public class ConnectionManager implements Runnable{
 				else
 					addToQueue(piece, activePeers.get(RANDOM.nextInt(activePeers.size()-1)), restarted);
 			}
-			/*
-			String peer = piece.peers.get(j);
-			if(downloading.containsKey(peer) && j != piece.peers.size()-1)
-				continue;
-			else {
-				if(choked.containsKey(peer)) {
-					if(unchoked.size() < 4) {
-						choked.get(peer).outputQueue.add(Message.createInterested());
-						addToQueue(piece, peer, restarted);
-						downloading.put(peer, piece);
-					} else {
-						addToQueue(piece, peer, restarted);
-					}
-					break;
-				} else {
-					addToQueue(piece, peer, restarted);
-					break;
-				}
-			}
-			*/
 	}
 	
 	private void addToQueue(Piece piece, String peer, boolean restarted) {
@@ -190,8 +213,7 @@ public class ConnectionManager implements Runnable{
 					size = torrentInfo.piece_length;
 				unchoked.get(peer).outputQueue.add(Message.createRequest(piece.index, 0, size));
 			} else {
-				//downloadQueue.remove(0);
-				//findPeer((Piece) downloadQueue.remove(1), true);
+				//do nothing
 			}
 		}
 	}
@@ -222,7 +244,7 @@ public class ConnectionManager implements Runnable{
 
 		@Override
 		public int compare(Piece o1, Piece o2) {
-			return (o1.occurrences>o2.occurrences ? -1 : (o1.occurrences==o2.occurrences ? 0 : 1));
+			return (o1.occurrences<o2.occurrences ? -1 : (o1.occurrences==o2.occurrences ? 0 : 1));
 		}
 	} 
 }

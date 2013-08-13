@@ -21,7 +21,7 @@ public class TrackerConnection implements Runnable{
 	private static TorrentInfo torrentInfo;
 	private final static Timer TIMER = new Timer();
 	private static long delay;
-	private static TimerTask task;
+	private static TimerTask task = null;
 	
 	/**
 	 * Creates a TrackerConnection.
@@ -168,8 +168,10 @@ public class TrackerConnection implements Runnable{
      * every (interval - min interval)/2 + min interval seconds.
      */
     public static void resetTimer() {
-    	task.cancel(); TIMER.purge();
-    	scheduleTask();
+    	if(task != null) {
+    		task.cancel(); TIMER.purge();
+    		scheduleTask();
+    	}
     }
     
     /**

@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -53,7 +55,8 @@ public class Input implements Runnable{
 				}//end while
 			}//end if
 		} catch (IOException e) {
-			System.out.println("Could not get data from " + connection.IPAddress);
+			if(ClientInfo.left != 0)
+				System.out.println("Could not get data from " + connection.IPAddress);
 		}
 		connection.close();
 	}
@@ -66,12 +69,16 @@ public class Input implements Runnable{
 	private void processBitfield(BitSet bitfield) {
 		Set<Integer> pieces = ConnectionManager.pieces.keySet();
 		Iterator<Integer> iterator = pieces.iterator();
-		while(iterator.hasNext()) {
-			int piece = iterator.next();
-			if(bitfield.get(bitfield.length()-1-piece)) {
-				ConnectionManager.pieces.get(piece).peers.add(connection.IPAddress);
-				ConnectionManager.pieces.get(piece).occurrences++;
+		try {
+			while(iterator.hasNext()) {
+				int piece = iterator.next();
+				if(bitfield.get(bitfield.length()-1-piece)) {
+					ConnectionManager.pieces.get(piece).peers.add(connection.IPAddress);
+					ConnectionManager.pieces.get(piece).occurrences++;
+				}
 			}
+		} catch(IndexOutOfBoundsException e) {
+			//do nothing
 		}
 		connection.done = true;
 	}
@@ -170,6 +177,7 @@ public class Input implements Runnable{
 				piece.occurrences++;
 			}
 		}
+		ConnectionManager.sort();
 	}
 	
 	private void request(byte[] message) throws IOException {
@@ -196,16 +204,28 @@ public class Input implements Runnable{
 			int begin = pieceBuffer.getInt();
 			byte[] block = new byte[pieceBuffer.remaining()];
 			pieceBuffer.get(block);
-			connection.fileManager.putInFile(index, begin, block,
-					ConnectionManager.torrentInfo.piece_length);
-			connection.outputQueue.add(Message.createHave(index));
-			ConnectionManager.donePieces.add(index);
-			ConnectionManager.pieces.remove(index);
-			ClientInfo.downloaded += block.length; ClientInfo.left -= block.length;
-			System.out.println("Downloaded piece " + index +" from " + connection.IPAddress);
-		} catch(BufferUnderflowException e) {
+			if(verifyPiece(block, ConnectionManager.torrentInfo.piece_hashes[index])) {
+				connection.fileManager.putInFile(index, begin, block,
+						ConnectionManager.torrentInfo.piece_length);
+				connection.outputQueue.add(Message.createHave(index));
+				ConnectionManager.donePieces.add((Integer) index);
+				ConnectionManager.pieces.remove((Integer) index);
+				ConnectionManager.downloading.remove(connection.IPAddress);
+				ClientInfo.downloaded += block.length; ClientInfo.left -= block.length;
+				System.out.println("Downloaded piece " + (index+1) +" from " + connection.IPAddress);
+			}
+		} catch(BufferUnderflowException | NoSuchAlgorithmException e) {
 			//do nothing
 		}
+	}
+	
+	private boolean verifyPiece(byte[] piece1, ByteBuffer encodedPiece2) throws NoSuchAlgorithmException {
+		MessageDigest encoder = MessageDigest.getInstance("SHA-1");
+		ByteBuffer encodedPiece1 = ByteBuffer.wrap(encoder.digest(piece1));
+		if(encodedPiece1.equals(encodedPiece2))
+			return true;
+		else
+			return false;
 	}
 	
 	public void close() throws IOException {

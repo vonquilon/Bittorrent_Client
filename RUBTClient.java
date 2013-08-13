@@ -6,9 +6,7 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -91,6 +89,7 @@ public class RUBTClient {
             		if(torrentInfo == null) {
             			torrentInfo = TorrentParser.parseTorrent(torrentName);
             			ClientInfo.setLeft(torrentInfo.file_length);
+            			ClientInfo.setBitfield((torrentInfo.piece_hashes.length/8)*8+8);
             			Message.setHandshake(torrentInfo.info_hash);
             		}
             		if(trackerConnection == null) {
