@@ -20,7 +20,11 @@ public class Input implements Runnable{
 	private volatile boolean stopped = false;
 	private PeerConnection connection;
 	private InputStream in;
-	
+
+
+    private long sizeSent = 0;
+    private long startingTime = 0;
+
 	/**
      * Constructor for the input stream.
      * 
@@ -32,11 +36,16 @@ public class Input implements Runnable{
 		this.in = in;
 	}
 
+    public long dataRate() {
+        return sizeSent/(System.currentTimeMillis()-startingTime);
+    }
+
 	/**
      * Runs this input thread
      */
 	@Override
 	public void run() {
+        startingTime = System.currentTimeMillis();
 		try {
 			if(Message.verifyHandshake(handshakeProcess())) {
 				System.out.println("Connected to: " + connection.IPAddress);
@@ -303,6 +312,7 @@ public class Input implements Runnable{
 				ClientInfo.bitfield.set(offset-index-1);
 				ClientInfo.downloaded += block.length; ClientInfo.left -= block.length;
 				System.out.println("Downloaded piece " + (index+1) +" from " + connection.IPAddress);
+                sizeSent += block.length;
 			}
 		} catch(BufferUnderflowException | NoSuchAlgorithmException e) {
 			//do nothing

@@ -114,7 +114,12 @@ public class PeerConnection implements Runnable{
 			close();
 		}
 	}
-	
+
+    public long getDataRate() {
+        return in.dataRate();
+    }
+
+
 	/**
 	 * Schedules a timer to handle keep-alive messages.
 	 */

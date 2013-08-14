@@ -1,13 +1,7 @@
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 /**
  * ConnectionManager manages the download and upload connections. It also manages
@@ -60,6 +54,7 @@ public class ConnectionManager implements Runnable{
      */
 	@Override
 	public void run() {
+        int throttleCounter = 0;
 		while(!stopped) {
 			if(TrackerResponse.peers != null && !trackerDone)
 				startConnections();
@@ -97,6 +92,7 @@ public class ConnectionManager implements Runnable{
 					if( ((choked.size()+unchoked.size()) < 10) && (peersOffset < TrackerResponse.peers.size()))
 						getConnections(10 - (choked.size()+unchoked.size()) );
 				}//end else
+                throttlePeers();
 				if(ClientInfo.left == 0) {
 					stopped = true;
 					try {
@@ -115,6 +111,7 @@ public class ConnectionManager implements Runnable{
 			}//end else
 			try {
 				Thread.sleep(200);
+                throttleCounter++;
 			} catch (InterruptedException e) {
 				//do nothing
 			}
@@ -123,8 +120,40 @@ public class ConnectionManager implements Runnable{
 		upload = new Upload(fileManager);
 		new Thread(upload).start();
 	}
-	
-	/**
+
+    private void throttlePeers() {
+        long lowestRate = Long.MAX_VALUE;
+        String key = null;
+        for(Map.Entry<String, PeerConnection> entry : unchoked.entrySet()){
+            PeerConnection peerConnection = entry.getValue();
+            long rate = peerConnection.getDataRate();
+            if(rate < lowestRate) {
+                lowestRate = rate;
+                key = entry.getKey();
+            }
+        }
+        if(key == null) {
+            return;
+        }
+        PeerConnection slowestPeer = unchoked.remove(key);
+        slowestPeer.outputQueue.add(Message.createChoke());
+        choked.put(key,slowestPeer);
+
+        System.out.println("Choked " + slowestPeer.IPAddress + " based on poor speed.");
+
+        for(Map.Entry<String, PeerConnection> entry : choked.entrySet()){
+            key = entry.getKey();
+            break;
+        }
+        PeerConnection peerConnection = choked.remove(key);
+
+        peerConnection.outputQueue.add(Message.createUnchoke());
+        unchoked.put(key,peerConnection);
+
+        System.out.println("Unchoked " + slowestPeer.IPAddress + ".");
+    }
+
+    /**
 	 * Opens the connections to 10 peers in the peers list.
 	 */
 	private void startConnections() {

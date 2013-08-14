@@ -13,9 +13,6 @@ public class Output implements Runnable{
 	private volatile boolean stopped = false;
 	private PeerConnection connection;
 	private OutputStream out;
-	
-	//private long sizeSent = 0;
-    //private long timeSpentSending = 0;
 
     /**
      * Constructor for this output thread.
