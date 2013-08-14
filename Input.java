@@ -8,23 +8,31 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Set;
 
+/**
+ * Input manages the data received from peers.
+ * 
+ * @author Von Kenneth Quilon & Alex Loh
+ * @date 08/11/2013
+ * @version 1.0
+ */
 public class Input implements Runnable{
 	
 	private volatile boolean stopped = false;
 	private PeerConnection connection;
 	private InputStream in;
-
-    /**
-     * Constructor for the input stream
-     * @param connection the peer connection to this input
-     * @param in the input stream connected to a Socket on which data is sent
+	
+	/**
+     * Constructor for the input stream.
+     * 
+     * @param connection - the peer connection to this input
+     * @param in - the input stream connected to a Socket on which data is sent
      */
 	public Input(PeerConnection connection, InputStream in) {
 		this.connection = connection;
 		this.in = in;
 	}
 
-    /**
+	/**
      * Runs this input thread
      */
 	@Override
@@ -32,6 +40,10 @@ public class Input implements Runnable{
 		try {
 			if(Message.verifyHandshake(handshakeProcess())) {
 				System.out.println("Connected to: " + connection.IPAddress);
+				if(connection.isUpload) {
+					connection.outputQueue.add(Message.handshake);
+					connection.outputQueue.add(bitSetToArray(ClientInfo.bitfield));
+				}
 				connection.scheduleTask();
 				while(!stopped) {
 					byte[] messageLength = new byte[4];
@@ -69,11 +81,22 @@ public class Input implements Runnable{
 		connection.close();
 	}
 	
+	/**
+	 * Reads up to the buffer's length.
+	 * 
+	 * @param buffer - the buffer to read to
+	 * @throws IOException - if unable to read
+	 */
 	private void read(byte[] buffer) throws IOException {
 		for(int size = 0; size != buffer.length;)
 			size += in.read(buffer, size, buffer.length-size);
 	}
 	
+	/**
+	 * Processes the bitfield of a peer.
+	 * 
+	 * @param bitfield - the bitfield of a peer
+	 */
 	private void processBitfield(BitSet bitfield) {
 		Set<Integer> pieces = ConnectionManager.pieces.keySet();
 		Iterator<Integer> iterator = pieces.iterator();
@@ -91,6 +114,12 @@ public class Input implements Runnable{
 		connection.done = true;
 	}
 	
+	/**
+	 * Converts a byte array into a BitSet in little endian mode.
+	 * 
+	 * @param bytes - the byte array
+	 * @return bits - the BitSet
+	 */
 	private BitSet arrayToBitSet(byte[] bytes) {
 		BitSet bits = new BitSet();
 	    for (int i=0; i<bytes.length*8; i++) {
@@ -101,6 +130,29 @@ public class Input implements Runnable{
 	    return bits;
 	}
 	
+	/**
+	 * Converts a BitSet in little endian mode into a byte array.
+	 * 
+	 * @param bits - the BitSet
+	 * @return result - the resulting ByteBuffer
+	 */
+	private ByteBuffer bitSetToArray(BitSet bits) {
+	    byte[] bytes = new byte[bits.length()/8+1];
+	    for (int i=0; i<bits.length(); i++) {
+	        if (bits.get(i)) {
+	            bytes[bytes.length-i/8-1] |= 1<<(i%8);
+	        }
+	    }
+	    ByteBuffer result = ByteBuffer.allocate(bytes.length-1);
+	    return result.put(bytes, 1, bytes.length-1);
+	}
+	
+	/**
+	 * Processes the handshake of the peer.
+	 * 
+	 * @return the ByteBuffer of the peer's handshake
+	 * @throws IOException
+	 */
 	private ByteBuffer handshakeProcess() throws IOException {
 		byte[] handshake = new byte[68];
 		read(handshake);
@@ -122,6 +174,13 @@ public class Input implements Runnable{
 		return ByteBuffer.wrap(handshake);
 	}
 	
+	/**
+	 * Processes the message received from a peer.
+	 * 
+	 * @param messageType - the type of message
+	 * @param message - the peer's message
+	 * @throws IOException
+	 */
 	private void processMessage(String messageType, byte[] message) throws IOException {
 		switch(messageType) {
 			case "keep-alive": 	if(connection.isUpload)
@@ -162,18 +221,29 @@ public class Input implements Runnable{
 		}
 	}
 	
+	/**
+	 * Chokes a peer's connection.
+	 */
 	private void choke() {
 		if(ConnectionManager.unchoked.containsKey(connection.IPAddress))
 			ConnectionManager.choked.put(connection.IPAddress, 
 					ConnectionManager.unchoked.remove(connection.IPAddress));
 	}
 	
+	/**
+	 * Unchokes a peer's connection.
+	 */
 	private void unchoke() {
 		if(ConnectionManager.choked.containsKey(connection.IPAddress))
 			ConnectionManager.unchoked.put(connection.IPAddress, 
 					ConnectionManager.choked.remove(connection.IPAddress));
 	}
 	
+	/**
+	 * Processes a have message.
+	 * 
+	 * @param message - the message to process
+	 */
 	private void have(byte[] message) {
 		ByteBuffer indexBuffer = ByteBuffer.allocate(message.length-1);
 		indexBuffer.put(message, 1, message.length-1).clear();
@@ -188,6 +258,11 @@ public class Input implements Runnable{
 		ConnectionManager.sort();
 	}
 	
+	/**
+	 * Processes a request message.
+	 * 
+	 * @param message - the message to process
+	 */
 	private void request(byte[] message) throws IOException {
 		ByteBuffer requestBuffer = ByteBuffer.allocate(message.length-1);
 		requestBuffer.put(message, 1, message.length-1).clear();
@@ -204,6 +279,11 @@ public class Input implements Runnable{
 		}
 	}
 	
+	/**
+	 * Processes a piece message.
+	 * 
+	 * @param message - the message to process
+	 */
 	private void piece(byte[] message) throws IOException {
 		ByteBuffer pieceBuffer = ByteBuffer.allocate(message.length-1);
 		pieceBuffer.put(message, 1, message.length-1).clear();
@@ -219,6 +299,8 @@ public class Input implements Runnable{
 				ConnectionManager.donePieces.add((Integer) index);
 				ConnectionManager.pieces.remove((Integer) index);
 				ConnectionManager.downloading.remove(connection.IPAddress);
+				int offset = (ConnectionManager.torrentInfo.piece_hashes.length/8)*8+8;
+				ClientInfo.bitfield.set(offset-index-1);
 				ClientInfo.downloaded += block.length; ClientInfo.left -= block.length;
 				System.out.println("Downloaded piece " + (index+1) +" from " + connection.IPAddress);
 			}
@@ -227,6 +309,14 @@ public class Input implements Runnable{
 		}
 	}
 	
+	/**
+	 * Verifies if the received piece is correct.
+	 * 
+	 * @param piece1 - the piece received from a peer
+	 * @param encodedPiece2 - the encoded piece from the torrent file
+	 * @return true if verified, false if not
+	 * @throws NoSuchAlgorithmException - if an encoding algorithm is not found
+	 */
 	private boolean verifyPiece(byte[] piece1, ByteBuffer encodedPiece2) throws NoSuchAlgorithmException {
 		MessageDigest encoder = MessageDigest.getInstance("SHA-1");
 		ByteBuffer encodedPiece1 = ByteBuffer.wrap(encoder.digest(piece1));
@@ -235,9 +325,10 @@ public class Input implements Runnable{
 		else
 			return false;
 	}
-
-    /**
-     * Closes this input thread
+	
+	/**
+     * Closes this input thread.
+     * 
      * @throws IOException if unable to close the InputStream
      */
 	public void close() throws IOException {

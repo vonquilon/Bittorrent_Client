@@ -11,7 +11,7 @@ import java.util.Random;
 /**
  * ClientInfo holds a client's peer ID, port number, total uploaded, and total downloaded.
  * 
- * @author Von Kenneth Quilon
+ * @author Von Kenneth Quilon & Alex Loh
  * @date 08/01/2013
  * @version 1.0
  */
@@ -23,7 +23,8 @@ public class ClientInfo {
 	public final static byte[] PEER_ID = generatePeerID();
 	
 	/**
-	 * The client's external IP address.
+	 * The client's external IP address. Used for checking the peers list of the tracker response. If it contains
+	 * this address, the client won't connect to it.
 	 */
 	public static String IPAddress = null; 
 	
@@ -47,7 +48,10 @@ public class ClientInfo {
 	 */
 	public static volatile int left;
 	
-	public static BitSet bitfield;
+	/**
+	 * The client's bitfield.
+	 */
+	public static volatile BitSet bitfield = new BitSet();
 	
 	/**
      * Sets the public final static field, PEER_ID, to 20 bytes of characters.
@@ -74,9 +78,9 @@ public class ClientInfo {
 
         return peerID;
     }
-
+    
     /**
-     * Gets our current IP from the website http://checkip.amazonaws.com/ and puts it into the IPAddress field.
+     * Retrieves the external IP Address of the client.
      */
     public static void setIP() {
     	try {
@@ -127,13 +131,5 @@ public class ClientInfo {
      */
     public static void setLeft(int leftToDownload) {
     	left = leftToDownload;
-    }
-
-    /**
-     * Creates a new bitfield to store bits corresponding to the pieces we've downloaded
-     * @param size the number of pieces we have
-     */
-    public static void setBitfield(int size) {
-    	bitfield = new BitSet(size);
     }
 }

@@ -3,14 +3,22 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
+/**
+ * FileManager manages the creation, writing, and reading of a file.
+ * 
+ * @author Von Kenneth Quilon & Alex Loh
+ * @date 08/11/2013
+ * @version 1.0
+ */
 public class FileManager {
 
 	private RandomAccessFile file;
-
-    /**
-     * Constructor for this file manager
-     * @param size the size of the file
-     * @param fileName the filename to save the file under
+	
+	/**
+     * Constructor for this file manager.
+     * 
+     * @param size - the size of the file
+     * @param fileName - the filename to save the file under
      */
 	public FileManager(int size, String fileName) {
 		try {
@@ -28,14 +36,15 @@ public class FileManager {
 			System.out.println("Not enough disk space!");
 		}
 	}
-
-    /**
-     * Gets data from a file
-     * @param index the index of the piece to start at
-     * @param begin the offset within the piece
-     * @param length the length of data to get
-     * @param pieceSize the maximum size of the pieces in this file
-     * @return the data in the file as a byte[]
+	
+	/**
+     * Gets data from a file.
+     * 
+     * @param index - the index of the piece to start at
+     * @param begin - the offset within the piece
+     * @param length - the length of data to get
+     * @param pieceSize - the maximum size of the pieces in this file
+     * @return result - the data in the file as a byte[]
      * @throws IOException if unable to read from disk
      */
 	public synchronized byte[] getFromFile(int index, int begin, int length, int pieceSize) throws IOException {
@@ -47,13 +56,14 @@ public class FileManager {
 		else
 			throw new IOException();
 	}
-
-    /**
-     * Puts data in a file
-     * @param index the index of the piece to start at
-     * @param begin the offset within the piece
-     * @param block the data to put in the file
-     * @param pieceSize the maximum size of the pieces in this file
+	
+	/**
+     * Puts data in a file.
+     * 
+     * @param index - the index of the piece to start at
+     * @param begin - the offset within the piece
+     * @param block - the data to put in the file
+     * @param pieceSize - the maximum size of the pieces in this file
      * @throws IOException if unable to read from disk
      */
 	public synchronized void putInFile(int index, int begin, byte[] block, int pieceSize) throws IOException {

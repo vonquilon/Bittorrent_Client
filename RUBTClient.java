@@ -36,7 +36,7 @@ public class RUBTClient {
 	private JTextArea textArea;
 	private JPanel bottomPanel;
 	private JButton start, exit;
-	private JLabel program, progress, rateLabel, rate;
+	private JLabel program, progress;
 	private String torrentName, fileName;
 	private boolean started = false;
 	TorrentInfo torrentInfo = null;
@@ -59,8 +59,6 @@ public class RUBTClient {
 		createExitButton();
 		program = new JLabel("Program: ");
 		progress = new JLabel("Not started"); progress.setPreferredSize(new Dimension(100, 10));
-		rateLabel = new JLabel("Rate: ");
-		rate = new JLabel();
 		
 		this.torrentName = torrentName;
 		this.fileName = fileName;
@@ -89,7 +87,6 @@ public class RUBTClient {
             		if(torrentInfo == null) {
             			torrentInfo = TorrentParser.parseTorrent(torrentName);
             			ClientInfo.setLeft(torrentInfo.file_length);
-            			ClientInfo.setBitfield((torrentInfo.piece_hashes.length/8)*8+8);
             			Message.setHandshake(torrentInfo.info_hash);
             		}
             		if(trackerConnection == null) {
@@ -102,8 +99,6 @@ public class RUBTClient {
             			connection = new ConnectionManager(torrentInfo, fileManager);
             			new Thread(connection).start();
             		}
-            	} else {
-            		started = false; progress.setText("Paused");
             	}
             }
         });
@@ -120,6 +115,8 @@ public class RUBTClient {
             public void actionPerformed(ActionEvent e) {
             	if(trackerConnection != null)
             		trackerConnection.cancelTimer();
+            	if(connection != null)
+            		connection.close();
             	frame.dispose();
             	System.exit(0);
             }
@@ -152,8 +149,6 @@ public class RUBTClient {
 		bottomPanel.add(Box.createHorizontalGlue());
 		bottomPanel.add(program);
 		bottomPanel.add(progress);
-		bottomPanel.add(rateLabel);
-		bottomPanel.add(rate);
 		bottomPanel.add(Box.createRigidArea(new Dimension(180, 0)));
 		bottomPanel.add(start);
 		bottomPanel.add(Box.createRigidArea(new Dimension(10, 0)));

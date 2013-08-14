@@ -1,38 +1,42 @@
 import java.io.IOException;
 import java.io.OutputStream;
 
+/**
+ * Output manages the sending of data to a peer.
+ * 
+ * @author Von Kenneth Quilon & Alex Loh
+ * @date 08/10/2013
+ * @version 1.0
+ */
 public class Output implements Runnable{
 
 	private volatile boolean stopped = false;
 	private PeerConnection connection;
 	private OutputStream out;
-
-    //private long sizeSent = 0;
+	
+	//private long sizeSent = 0;
     //private long timeSpentSending = 0;
 
     /**
-     * Constructor for this output thread
-     * @param connection the connection to the peer
-     * @param out an output stream connected to an active Socket
+     * Constructor for this output thread.
+     * 
+     * @param connection - the connection to the peer
+     * @param out - an output stream connected to an active Socket
      */
 	public Output(PeerConnection connection, OutputStream out) {
 		this.connection = connection;
 		this.out = out;
 	}
 
-    /**
-     * Runs the output thread
+	/**
+     * Runs the output thread.
      */
 	@Override
 	public void run() {
 		while(!stopped) {
 			if(connection.outputQueue.size() > 0) {
 				try {
-                    byte[] array = connection.outputQueue.remove(0).array();
-                    //sizeSent += array.length;
-                    //long currentTime = System.currentTimeMillis();
-                    out.write(array);
-                    //timeSpentSending += System.currentTimeMillis() - currentTime;
+					out.write(connection.outputQueue.remove(0).array());
 					if(!connection.isUpload)
 						connection.resetTimer();
 				} catch (IOException e) {
@@ -46,9 +50,10 @@ public class Output implements Runnable{
 			}
 		}
 	}
-
-    /**
-     * Closes the output stream and exits this thread
+	
+	/**
+     * Closes the output stream and exits this thread.
+     * 
      * @throws IOException if unable to close the output stream
      */
 	public void close() throws IOException {

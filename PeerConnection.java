@@ -1,16 +1,17 @@
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * PeerConnection manages a peer's connection.
+ * 
+ * @author Von Kenneth Quilon & Alex Loh
+ * @date 08/11/2013
+ * @version 1.0
+ */
 public class PeerConnection implements Runnable{
 
 	private volatile boolean stopped = false;
@@ -21,12 +22,40 @@ public class PeerConnection implements Runnable{
 	private final Timer TIMER = new Timer();
 	private TimerTask task = null;
 	private long delay;
+	
+	/**
+	 * The IP address of the peer.
+	 */
 	public String IPAddress;
+	
+	/**
+	 * The file manager.
+	 */
 	public FileManager fileManager;
+	
+	/**
+	 * The output queue.
+	 */
 	public volatile ArrayList<ByteBuffer> outputQueue;
+	
+	/**
+	 * If bitfield processing is done.
+	 */
 	public boolean done = false;
+	
+	/**
+	 * If this is an upload connection.
+	 */
 	public boolean isUpload;
-
+	
+	/**
+	 * Constructs a peer connection based on the peer's IP address and port number.
+	 * 
+	 * @param IPAddress - the peer's IP address
+	 * @param port - the peer's port number
+	 * @param isUpload - if it's an upload connection
+	 * @param fileManager
+	 */
 	public PeerConnection(String IPAddress, String port, boolean isUpload, FileManager fileManager) {
 		this.IPAddress = IPAddress;
 		this.port = Integer.parseInt(port);
@@ -39,6 +68,13 @@ public class PeerConnection implements Runnable{
 			delay = 2000;
 	}
 	
+	/**
+	 * Constructs a peer connection based on a socket.
+	 * 
+	 * @param socket - the peer's socket
+	 * @param isUpload - if it's an upload connection
+	 * @param fileManager
+	 */
 	public PeerConnection(Socket socket, boolean isUpload, FileManager fileManager) {
 		this.socket = socket;
 		this.IPAddress = socket.getInetAddress().getHostAddress();
@@ -52,6 +88,9 @@ public class PeerConnection implements Runnable{
 			delay = 2000;
 	}
 	
+	/**
+	 * Runs a peer connection.
+	 */
 	@Override
 	public void run() {
 		try {
@@ -76,6 +115,9 @@ public class PeerConnection implements Runnable{
 		}
 	}
 	
+	/**
+	 * Schedules a timer to handle keep-alive messages.
+	 */
 	public void scheduleTask() {
 		if(isUpload) {
 			task = new TimerTask() {
@@ -93,6 +135,9 @@ public class PeerConnection implements Runnable{
 		TIMER.schedule(task, delay, delay);
 	}
 	
+	/**
+	 * Resets the timer.
+	 */
 	public void resetTimer() {
 		if(task != null) {
 			task.cancel(); TIMER.purge();
@@ -100,12 +145,20 @@ public class PeerConnection implements Runnable{
 		}
 	}
 	
+	/**
+	 * Cancels the timer.
+	 */
 	private void cancelTimer() {
 		if(task != null)
 			task.cancel();
 		TIMER.cancel();
 	}
 	
+	/**
+	 * Closes a peer connection.
+	 * 
+	 * throws IOException if connection could not be closed
+	 */
 	public void close() {
 		stopped = true;
 		try {

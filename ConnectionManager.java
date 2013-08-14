@@ -9,6 +9,14 @@ import java.util.Iterator;
 import java.util.Random;
 import java.util.Set;
 
+/**
+ * ConnectionManager manages the download and upload connections. It also manages
+ * the rarest first algorithm.
+ * 
+ * @author Von Kenneth Quilon & Alex Loh
+ * @date 08/11/2013
+ * @version 1.0
+ */
 public class ConnectionManager implements Runnable{
 
 	private volatile boolean stopped = false;
@@ -20,6 +28,7 @@ public class ConnectionManager implements Runnable{
 	private int activeDownloadConnections = 0;
 	private int activeUploadConnections = 0;
 	private FileManager fileManager;
+	private Upload upload = null;
 	private ArrayList<Object> downloadQueue = new ArrayList<Object>();
 	private static ArrayList<Piece> sortedPieces;
 	private static volatile boolean isSorting = false;
@@ -30,11 +39,12 @@ public class ConnectionManager implements Runnable{
 	public static volatile HashMap<String,PeerConnection> unchoked = new HashMap<String,PeerConnection>(10);
 	public static volatile HashMap<Integer, Piece> pieces;
 	public static volatile ArrayList<Integer> donePieces;
-
-    /**
-     * Constructs this connection manager
-     * @param torrentInfo the decoded info from the torrent file
-     * @param fileManager the file manager that handles all of the uploading/downloading to the file
+	
+	/**
+     * Constructs this connection manager.
+     * 
+     * @param torrentInfo - the decoded info from the torrent file
+     * @param fileManager - the file manager that handles all of the writing/reading to the file
      */
 	public ConnectionManager(TorrentInfo torrentInfo, FileManager fileManager) {
 		ConnectionManager.torrentInfo = torrentInfo;
@@ -44,9 +54,9 @@ public class ConnectionManager implements Runnable{
 		for(int i = 0; i < torrentInfo.piece_hashes.length; i++)
 			pieces.put(i, new Piece(i));
 	}
-
-    /**
-     * Runs the connection manager, which then downloads and uploads the file
+	
+	/**
+     * Runs the connection manager, which then downloads then seeds the file.
      */
 	@Override
 	public void run() {
@@ -104,13 +114,19 @@ public class ConnectionManager implements Runnable{
 				}
 			}//end else
 			try {
-				Thread.sleep(100);
+				Thread.sleep(200);
 			} catch (InterruptedException e) {
 				//do nothing
 			}
 		}//end while
+		System.out.println("\nSeeding....");
+		upload = new Upload(fileManager);
+		new Thread(upload).start();
 	}
 	
+	/**
+	 * Opens the connections to 10 peers in the peers list.
+	 */
 	private void startConnections() {
 		try {
 			URLConnection trackerCommunication = TrackerConnection.makeURL(torrentInfo.announce_url.toExternalForm(), ClientInfo.PEER_ID, ClientInfo.port,
@@ -129,6 +145,11 @@ public class ConnectionManager implements Runnable{
 		trackerDone = true;
 	}
 	
+	/**
+	 * Starts connections to a specified number of peers.
+	 * 
+	 * @param peers - number of peers to connect to
+	 */
 	private void getConnections(int peers) {
 		int size;
 		if((TrackerResponse.peers.size()-peersOffset) > peers)
@@ -146,6 +167,9 @@ public class ConnectionManager implements Runnable{
 		}
 	}
 	
+	/**
+	 * Checks if the connections are done processing the peers' bitfields.
+	 */
 	private void checkBitfieldProcess() {
 		Set<String> peers = choked.keySet();
 		Iterator<String> iterator = peers.iterator();
@@ -158,6 +182,12 @@ public class ConnectionManager implements Runnable{
 		}
 	}
 	
+	/**
+	 * Finds a peer to download a piece from.
+	 * 
+	 * @param piece - the piece to download
+	 * @param restarted - if it is looking for another peer
+	 */
 	private void findPeer(Piece piece, boolean restarted) {
 			if(activeDownloadConnections < 4 && activeUploadConnections <= 2 && choked.size() != 0) {
 				for(int j = 0; j < piece.peers.size(); j++) {
@@ -183,6 +213,13 @@ public class ConnectionManager implements Runnable{
 			}
 	}
 	
+	/**
+	 * Adds a piece and peer to the download queue.
+	 * 
+	 * @param piece - the piece to download
+	 * @param peer - the peer to download from
+	 * @param restarted - if it looked for another peer
+	 */
 	private void addToQueue(Piece piece, String peer, boolean restarted) {
 		if(restarted) {
 			downloadQueue.add(0, peer); downloadQueue.add(1, piece); 
@@ -192,6 +229,9 @@ public class ConnectionManager implements Runnable{
 		}
 	}
 	
+	/**
+	 * Initiates the download of a piece in front of a queue.
+	 */
 	private void checkDownloadQueue() {
 		if(downloadQueue.size() != 0) {
 			String peer = (String) downloadQueue.get(0);
@@ -226,6 +266,9 @@ public class ConnectionManager implements Runnable{
 		}
 	}
 	
+	/**
+	 * Updates the number of active connections.
+	 */
 	private void updateActiveConnections() {
 		activeDownloadConnections = 0;
 		activeUploadConnections = 0;
@@ -239,9 +282,10 @@ public class ConnectionManager implements Runnable{
 				activeDownloadConnections++;
 		}
 	}
-
-    /**
-     * Sorts the pieces according to number of occurrences for use in determining the least common piece, which is the one we should request
+	
+	/**
+     * Sorts the pieces according to number of occurrences for use in determining
+     * the least common piece, which is the one we should request.
      */
 	public static synchronized void sort() {
 		isSorting = true;
@@ -251,6 +295,34 @@ public class ConnectionManager implements Runnable{
 		isSorting = false;
 	}
 	
+	/**
+	 * Closes all connections.
+	 */
+	public void close() {
+		stopped = true;
+		if(choked.size() != 0) {
+			Set<String> peers = choked.keySet();
+			Iterator<String> iterator = peers.iterator();
+			while(iterator.hasNext()) {
+				choked.get(iterator.next()).close();
+			}
+		}
+		if(unchoked.size() != 0) {
+			Set<String> peers = unchoked.keySet();
+			Iterator<String> iterator = peers.iterator();
+			while(iterator.hasNext()) {
+				unchoked.get(iterator.next()).close();
+			}
+		}
+		if(upload != null)
+			upload.close();
+	}
+	
+	/**
+	 * A custom Comparator class used for sorting the pieces.
+	 * 
+	 * @author Von Kenneth Quilon
+	 */
 	private static class PieceComparable implements Comparator<Piece>{
 
 		@Override
