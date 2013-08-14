@@ -92,7 +92,10 @@ public class ConnectionManager implements Runnable{
 					if( ((choked.size()+unchoked.size()) < 10) && (peersOffset < TrackerResponse.peers.size()))
 						getConnections(10 - (choked.size()+unchoked.size()) );
 				}//end else
-                throttlePeers();
+                if(throttleCounter == 15) {
+                    throttlePeers();
+                    throttleCounter = 0;
+                }
 				if(ClientInfo.left == 0) {
 					stopped = true;
 					try {
